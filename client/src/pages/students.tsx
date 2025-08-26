@@ -9,7 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import StudentFormModal from "@/components/student-form-modal";
 import QRCodeModal from "@/components/qr-code-modal";
-import { Upload, Download, FileSpreadsheet, Users, QrCode } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, Users, QrCode, Archive } from "lucide-react";
 import type { Event, Attendee } from "@shared/schema";
 
 export default function Students() {
@@ -222,6 +222,21 @@ export default function Students() {
             >
               <FileSpreadsheet className="h-4 w-4" />
               <span className="hidden sm:inline">Xuất Excel</span>
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedEventId) {
+                  window.location.href = `/api/events/${selectedEventId}/attendees/export-zip`;
+                }
+              }}
+              variant="outline"
+              className="flex items-center gap-2 border-blue-300 hover:bg-blue-50 text-blue-700 border-2"
+              disabled={!selectedEventId || attendees.length === 0}
+              title="Tải file ZIP chứa Excel và tất cả ảnh QR"
+              data-testid="button-export-zip"
+            >
+              <Archive className="h-4 w-4" />
+              <span className="hidden sm:inline">Tải QR ZIP</span>
             </Button>
             <Button
               onClick={() => fileInputRef.current?.click()}

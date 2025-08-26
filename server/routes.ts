@@ -8,11 +8,13 @@ import QRCode from "qrcode";
 import { randomUUID } from "crypto";
 import path from "path";
 import fs from "fs";
+import os from "os";
 import multer from 'multer';
 import csvParser from 'csv-parser';
 import * as XLSX from 'xlsx';
 import { Readable } from 'stream';
 import { z } from "zod";
+import archiver from 'archiver';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -483,6 +485,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Export error:', error);
       res.status(500).json({ message: 'Lỗi khi xuất file' });
+    }
+  });
+
+  // Export attendees with QR images as ZIP file
+  app.get('/api/events/:eventId/attendees/export-zip', isAuthenticated, async (req: any, res) => {
+    const eventId = parseInt(req.params.eventId);
+    const userId = req.user?.claims?.sub;
+    
+    try {
+      // Check if event exists and user owns it
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: 'Sự kiện không tồn tại' });
+      }
+      if (event.userId !== userId) {
+        return res.status(403).json({ message: 'Không có quyền thao tác' });
+      }
+      
+      // Get all attendees for the event
+      const attendees = await storage.getAttendeesByEventId(eventId);
+      
+      // Create temporary directory
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qr-export-'));
+      
+      try {
+        // Prepare data for Excel
+        const excelData = attendees.map((attendee, index) => ({
+          'STT': index + 1,
+          'Tên': attendee.name,
+          'MSSV/MSNV': attendee.studentId || '',
+          'Email': attendee.email || '',
+          'Khoa': attendee.faculty || '',
+          'Ngành': attendee.major || '',
+          'Mã QR': attendee.qrCode || '',
+          'File QR': attendee.qrCode ? `qr-codes/QR_${attendee.qrCode}.png` : '',
+          'Trạng thái': attendee.status === 'checked_in' ? 'Đã check-in' : 
+                        attendee.status === 'checked_out' ? 'Đã check-out' : 'Chờ check-in',
+          'Thời gian check-in': attendee.checkinTime ? new Date(attendee.checkinTime).toLocaleString('vi-VN') : '',
+          'Thời gian check-out': attendee.checkoutTime ? new Date(attendee.checkoutTime).toLocaleString('vi-VN') : ''
+        }));
+        
+        // Create workbook and worksheet
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Danh sách sinh viên');
+        
+        // Set column widths
+        const colWidths = [
+          { wch: 5 },   // STT
+          { wch: 25 },  // Tên
+          { wch: 15 },  // MSSV/MSNV
+          { wch: 25 },  // Email
+          { wch: 20 },  // Khoa
+          { wch: 20 },  // Ngành
+          { wch: 15 },  // Mã QR
+          { wch: 30 },  // File QR
+          { wch: 15 },  // Trạng thái
+          { wch: 20 },  // Thời gian check-in
+          { wch: 20 }   // Thời gian check-out
+        ];
+        ws['!cols'] = colWidths;
+        
+        // Save Excel file to temp directory
+        const excelFileName = `DS_SinhVien_${event.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`;
+        const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        const excelPath = path.join(tempDir, excelFileName);
+        fs.writeFileSync(excelPath, excelBuffer);
+        
+        // Create QR codes directory
+        const qrDir = path.join(tempDir, 'qr-codes');
+        fs.mkdirSync(qrDir);
+        
+        // Generate QR code images
+        for (const attendee of attendees) {
+          if (attendee.qrCode) {
+            const qrImagePath = path.join(qrDir, `QR_${attendee.qrCode}.png`);
+            await QRCode.toFile(qrImagePath, attendee.qrCode);
+          }
+        }
+        
+        // Create ZIP file
+        const zipFileName = `DS_SinhVien_QR_${event.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.zip`;
+        
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+        
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        
+        archive.on('error', (err) => {
+          throw err;
+        });
+        
+        archive.pipe(res);
+        
+        // Add Excel file to ZIP
+        archive.file(excelPath, { name: excelFileName });
+        
+        // Add QR code images to ZIP
+        archive.directory(qrDir, 'qr-codes');
+        
+        // Finalize the archive
+        await archive.finalize();
+        
+      } finally {
+        // Clean up temporary directory
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+      
+    } catch (error) {
+      console.error('Export ZIP error:', error);
+      res.status(500).json({ message: 'Lỗi khi xuất file ZIP' });
     }
   });
   
