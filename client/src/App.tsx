@@ -15,7 +15,7 @@ import Navbar from "@/components/navbar";
 import MobileNavigation from "@/components/mobile-navigation";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, error } = useAuth();
 
   // Show loading state
   if (isLoading) {
@@ -29,8 +29,8 @@ function Router() {
     );
   }
 
-  // If not authenticated, show login page
-  if (!isAuthenticated) {
+  // If not authenticated (error or no user), show login page
+  if (!isAuthenticated || error) {
     return <LoginPage />;
   }
 

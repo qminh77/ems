@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,55 +7,21 @@ import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import QRScanner from "@/components/qr-scanner";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { useAuth } from "@/hooks/useAuth";
 
 export default function Checkin() {
   const [manualCode, setManualCode] = useState("");
   const [scannerActive, setScannerActive] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
-
-  const { data: recentCheckins = [], error: checkinsError } = useQuery({
+  const { data: recentCheckins = [] } = useQuery({
     queryKey: ["/api/checkin/recent"],
-    enabled: isAuthenticated,
     refetchInterval: 5000, // Refresh every 5 seconds
   });
 
-  const { data: stats, error: statsError } = useQuery({
+  const { data: stats } = useQuery({
     queryKey: ["/api/dashboard/stats"],
-    enabled: isAuthenticated,
   });
-
-  useEffect(() => {
-    const error = checkinsError || statsError;
-    if (error && isUnauthorizedError(error as Error)) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-    }
-  }, [checkinsError, statsError, toast]);
 
   const checkinMutation = useMutation({
     mutationFn: async (qrCode: string) => {
@@ -73,17 +39,6 @@ export default function Checkin() {
       setManualCode("");
     },
     onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
       toast({
         title: "Lỗi",
         description: "Mã QR không hợp lệ hoặc đã được sử dụng",

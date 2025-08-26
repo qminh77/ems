@@ -9,8 +9,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import StudentFormModal from "@/components/student-form-modal";
 import QRCodeModal from "@/components/qr-code-modal";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { useAuth } from "@/hooks/useAuth";
 import { Upload, Download, FileSpreadsheet, Users, QrCode } from "lucide-react";
 import type { Event, Attendee } from "@shared/schema";
 
@@ -24,46 +22,15 @@ export default function Students() {
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
-
-  const { data: events = [], error: eventsError } = useQuery<Event[]>({
+  const { data: events = [] } = useQuery<Event[]>({
     queryKey: ["/api/events"],
-    enabled: isAuthenticated,
   });
 
-  const { data: attendees = [], isLoading: attendeesLoading, error: attendeesError } = useQuery<Attendee[]>({
+  const { data: attendees = [], isLoading: attendeesLoading } = useQuery<Attendee[]>({
     queryKey: ["/api/events", selectedEventId, "attendees"],
-    enabled: isAuthenticated && !!selectedEventId,
+    enabled: !!selectedEventId,
   });
-
-  useEffect(() => {
-    const error = eventsError || attendeesError;
-    if (error && isUnauthorizedError(error as Error)) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-    }
-  }, [eventsError, attendeesError, toast]);
 
   // Set default event if URL has eventId parameter
   useEffect(() => {
@@ -89,17 +56,6 @@ export default function Students() {
       });
     },
     onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
       toast({
         title: "Lỗi",
         description: "Không thể xóa sinh viên",
