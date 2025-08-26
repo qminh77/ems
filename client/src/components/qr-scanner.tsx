@@ -26,8 +26,8 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   const [cameraReady, setCameraReady] = useState(false);
 
   const startScanning = async () => {
-    if (isLoading) {
-      console.log("Already loading, skipping...");
+    if (isLoading || hasPermission) {
+      console.log("Already loading or has permission, skipping...");
       return;
     }
     
@@ -64,6 +64,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       
       streamRef.current = stream;
       setHasPermission(true);
+      console.log("Stream acquired, permission granted");
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -150,15 +151,18 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
           }
         }, 1000);
         
-        // Also try forcing ready state after 3 seconds if still not ready
+        // Force ready state after 1.5 seconds if we have stream
         setTimeout(() => {
-          if (!cameraReady && videoRef.current && streamRef.current) {
-            console.log("Timeout: Force setting camera ready");
+          if (streamRef.current && videoRef.current) {
+            console.log("Force clearing loading state after 1.5s");
             setIsLoading(false);
-            setCameraReady(true);
-            setTimeout(() => startQRDetection(), 300);
+            if (!cameraReady) {
+              setCameraReady(true);
+              console.log("Force set camera ready = true");
+              setTimeout(() => startQRDetection(), 300);
+            }
           }
-        }, 3000);
+        }, 1500);
         
       }
     } catch (err: any) {
@@ -327,14 +331,18 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   }, []);
 
   useEffect(() => {
-    if (active && !hasPermission && !isLoading) {
-      console.log("Starting camera scan...");
-      startScanning();
-    } else if (!active && hasPermission) {
-      console.log("Stopping camera scan...");
-      stopScanning();
+    if (active) {
+      if (!hasPermission && !isLoading) {
+        console.log("Starting camera scan...");
+        startScanning();
+      }
+    } else {
+      if (hasPermission) {
+        console.log("Stopping camera scan...");
+        stopScanning();
+      }
     }
-  }, [active, hasPermission, isLoading]);
+  }, [active]);
 
   if (!isSupported) {
     return (
@@ -352,7 +360,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
     <div className="space-y-4" data-testid="qr-scanner">
       {/* Scanner Display */}
       <div className="relative mx-auto w-full max-w-md aspect-square bg-black rounded-lg overflow-hidden">
-        {active && hasPermission ? (
+        {active ? (
           <>
             <video
               ref={videoRef}
@@ -369,7 +377,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
             />
             
             {/* Scanning Overlay */}
-            {cameraReady && (
+            {hasPermission && (
               <>
                 <div className="absolute inset-0 bg-black bg-opacity-40">
                   {/* Scanning Frame */}
@@ -395,30 +403,23 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
               </>
             )}
             
-            {/* Loading Overlay */}
-            {(isLoading || !cameraReady) && (
-              <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center">
+            {/* Loading Overlay - only show when actually loading */}
+            {isLoading && (
+              <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center pointer-events-none">
                 <div className="text-center text-white">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                  <p className="text-sm">{isLoading ? "Đang khởi động camera..." : "Đang tải video..."}</p>
+                  <p className="text-sm">Đang khởi động camera...</p>
                 </div>
               </div>
             )}
           </>
         ) : (
           <div className="flex items-center justify-center h-full bg-gray-900">
-            {isLoading ? (
-              <div className="text-center text-white">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                <p>Đang mở camera...</p>
-              </div>
-            ) : (
-              <div className="text-center text-gray-300">
-                <QrCode className="h-16 w-16 mb-4 mx-auto opacity-50" />
-                <p className="text-lg">Nhấn nút bên dưới để bật camera</p>
-                <p className="text-sm opacity-75 mt-2">Hoặc tải lên ảnh có mã QR</p>
-              </div>
-            )}
+            <div className="text-center text-gray-300">
+              <QrCode className="h-16 w-16 mb-4 mx-auto opacity-50" />
+              <p className="text-lg">Nhấn nút bên dưới để bật camera</p>
+              <p className="text-sm opacity-75 mt-2">Hoặc tải lên ảnh có mã QR</p>
+            </div>
           </div>
         )}
       </div>
