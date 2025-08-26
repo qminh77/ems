@@ -54,21 +54,30 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
           setError("Camera tải quá lâu. Vui lòng thử lại.");
           setIsLoading(false);
           stopScanning();
-        }, 10000); // 10 second timeout
+        }, 15000); // 15 second timeout
         
-        // Use loadeddata event instead of loadedmetadata
-        videoRef.current.onloadeddata = async () => {
+        // Use multiple events to ensure video loads properly
+        const handleVideoReady = () => {
           clearTimeout(loadTimeout);
-          try {
-            await videoRef.current?.play();
-            setIsLoading(false);
-            setCameraReady(true);
-            // Start detection after a brief delay to ensure video is ready
-            setTimeout(() => startQRDetection(), 100);
-          } catch (playErr) {
-            console.error("Error playing video:", playErr);
-            setError("Không thể phát video từ camera");
-            setIsLoading(false);
+          console.log("Video ready, video dimensions:", videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
+          setIsLoading(false);
+          setCameraReady(true);
+          // Start detection after a brief delay to ensure video is ready
+          setTimeout(() => startQRDetection(), 500);
+        };
+        
+        videoRef.current.onloadedmetadata = handleVideoReady;
+        videoRef.current.oncanplay = handleVideoReady;
+        
+        // Also try to play manually if autoplay fails
+        videoRef.current.onloadstart = () => {
+          console.log("Video loading started");
+        };
+        
+        videoRef.current.onplay = () => {
+          console.log("Video started playing");
+          if (!cameraReady) {
+            handleVideoReady();
           }
         };
         
@@ -133,17 +142,31 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       
-      if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
+      if (!ctx) {
+        animationRef.current = requestAnimationFrame(detectFrame);
+        return;
+      }
+      
+      // Check if video has data and dimensions
+      if (video.readyState < video.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
         animationRef.current = requestAnimationFrame(detectFrame);
         return;
       }
       
       // Set canvas size to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      const width = video.videoWidth;
+      const height = video.videoHeight;
+      
+      if (width === 0 || height === 0) {
+        animationRef.current = requestAnimationFrame(detectFrame);
+        return;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
       
       // Draw video frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, width, height);
       
       // Get image data for QR detection
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -261,9 +284,8 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
               className="absolute inset-0 w-full h-full object-cover"
               playsInline
               muted
-              autoPlay={false} // Don't autoplay, we'll control it manually
+              autoPlay
               data-testid="scanner-video"
-              style={{ transform: 'scaleX(-1)' }} // Mirror the video for better UX
             />
             <canvas
               ref={canvasRef}
