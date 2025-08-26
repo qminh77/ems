@@ -254,6 +254,20 @@ export default function Students() {
               <span className="hidden sm:inline">File mẫu</span>
             </Button>
             <Button
+              onClick={() => {
+                if (selectedEventId) {
+                  window.location.href = `/api/events/${selectedEventId}/attendees/export`;
+                }
+              }}
+              variant="outline"
+              className="flex items-center gap-2 border-gray-300 hover:bg-gray-50"
+              disabled={!selectedEventId || attendees.length === 0}
+              title="Xuất danh sách kèm mã QR"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              <span className="hidden sm:inline">Xuất Excel</span>
+            </Button>
+            <Button
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
               className="flex items-center gap-2 border-gray-300 hover:bg-gray-50"

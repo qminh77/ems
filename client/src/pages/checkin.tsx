@@ -182,8 +182,14 @@ export default function Checkin() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2" data-testid="result-student-name">
                   {lastResult.attendee.name}
                 </h3>
-                <p className="text-gray-600 mb-4" data-testid="result-student-id">
-                  MSSV: {lastResult.attendee.studentId || "—"}
+                <p className="text-gray-600" data-testid="result-student-id">
+                  MSSV/MSNV: {lastResult.attendee.studentId || "—"}
+                </p>
+                <p className="text-gray-600" data-testid="result-email">
+                  Email: {lastResult.attendee.email || "—"}
+                </p>
+                <p className="text-gray-600 mb-4" data-testid="result-faculty-major">
+                  Khoa: {lastResult.attendee.faculty || "—"} | Ngành: {lastResult.attendee.major || "—"}
                 </p>
                 <p className="text-secondary font-medium mb-6" data-testid="result-status">
                   ✓ {lastResult.message}
@@ -202,9 +208,9 @@ export default function Checkin() {
                       </p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Lớp:</span>
-                      <p className="font-medium" data-testid="result-class">
-                        {lastResult.attendee.class || "—"}
+                      <span className="text-gray-500">Mã QR:</span>
+                      <p className="font-medium" data-testid="result-qrcode">
+                        {lastResult.attendee.qrCode || "—"}
                       </p>
                     </div>
                     <div>
@@ -245,6 +251,9 @@ export default function Checkin() {
                         <div>
                           <p className="font-medium text-sm" data-testid={`checkin-name-${index}`}>
                             {checkin.attendee.name}
+                          </p>
+                          <p className="text-xs text-gray-500" data-testid={`checkin-id-${index}`}>
+                            {checkin.attendee.studentId} - {checkin.attendee.faculty}
                           </p>
                           <p className="text-xs text-gray-500" data-testid={`checkin-time-${index}`}>
                             {new Date(checkin.timestamp).toLocaleTimeString('vi-VN')}

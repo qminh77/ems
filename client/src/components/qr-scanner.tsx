@@ -31,47 +31,68 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
     setCameraReady(false);
     
     try {
-      // Request camera permissions with better constraints
-      const constraints = {
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      };
+      // Try simpler constraints first
+      let stream: MediaStream;
+      try {
+        // Try with environment camera first
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+      } catch {
+        // Fallback to any camera
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
       
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       setHasPermission(true);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         
-        // Wait for video to be fully loaded
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().then(() => {
+        // Add timeout for loading
+        const loadTimeout = setTimeout(() => {
+          setError("Camera tải quá lâu. Vui lòng thử lại.");
+          setIsLoading(false);
+          stopScanning();
+        }, 10000); // 10 second timeout
+        
+        // Use loadeddata event instead of loadedmetadata
+        videoRef.current.onloadeddata = async () => {
+          clearTimeout(loadTimeout);
+          try {
+            await videoRef.current?.play();
             setIsLoading(false);
             setCameraReady(true);
-            startQRDetection();
-          }).catch(err => {
-            console.error("Error playing video:", err);
-            setError("Không thể khởi động camera");
+            // Start detection after a brief delay to ensure video is ready
+            setTimeout(() => startQRDetection(), 100);
+          } catch (playErr) {
+            console.error("Error playing video:", playErr);
+            setError("Không thể phát video từ camera");
             setIsLoading(false);
-          });
+          }
+        };
+        
+        // Handle video errors
+        videoRef.current.onerror = () => {
+          clearTimeout(loadTimeout);
+          setError("Lỗi khi tải video từ camera");
+          setIsLoading(false);
         };
       }
     } catch (err: any) {
       setIsLoading(false);
       setHasPermission(false);
       
-      if (err.name === 'NotAllowedError') {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setError("Bạn đã từ chối quyền truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt.");
-      } else if (err.name === 'NotFoundError') {
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setError("Không tìm thấy camera. Vui lòng kiểm tra thiết bị của bạn.");
-      } else if (err.name === 'NotReadableError') {
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
         setError("Camera đang được sử dụng bởi ứng dụng khác.");
+      } else if (err.name === 'OverconstrainedError') {
+        setError("Camera không hỗ trợ cài đặt được yêu cầu.");
       } else {
-        setError("Không thể truy cập camera. Vui lòng thử lại.");
+        setError("Không thể truy cập camera: " + (err.message || "Lỗi không xác định"));
       }
       console.error("Camera access error:", err);
     }
@@ -240,7 +261,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
               className="absolute inset-0 w-full h-full object-cover"
               playsInline
               muted
-              autoPlay
+              autoPlay={false} // Don't autoplay, we'll control it manually
               data-testid="scanner-video"
               style={{ transform: 'scaleX(-1)' }} // Mirror the video for better UX
             />

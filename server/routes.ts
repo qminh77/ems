@@ -335,6 +335,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Download template file for bulk import
+  // Export attendees with QR codes to Excel
+  app.get('/api/events/:eventId/attendees/export', isAuthenticated, async (req: any, res) => {
+    const eventId = parseInt(req.params.eventId);
+    const userId = req.user?.claims?.sub;
+    
+    try {
+      // Check if event exists and user owns it
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: 'Sự kiện không tồn tại' });
+      }
+      if (event.userId !== userId) {
+        return res.status(403).json({ message: 'Không có quyền thao tác' });
+      }
+      
+      // Get all attendees for the event
+      const attendees = await storage.getAttendeesByEventId(eventId);
+      
+      // Prepare data for Excel
+      const excelData = attendees.map((attendee, index) => ({
+        'STT': index + 1,
+        'Tên': attendee.name,
+        'MSSV/MSNV': attendee.studentId || '',
+        'Email': attendee.email || '',
+        'Khoa': attendee.faculty || '',
+        'Ngành': attendee.major || '',
+        'Mã QR': attendee.qrCode || '',
+        'Trạng thái': attendee.status === 'checked_in' ? 'Đã check-in' : 
+                    attendee.status === 'checked_out' ? 'Đã check-out' : 'Chờ check-in',
+        'Thời gian check-in': attendee.checkinTime ? new Date(attendee.checkinTime).toLocaleString('vi-VN') : '',
+        'Thời gian check-out': attendee.checkoutTime ? new Date(attendee.checkoutTime).toLocaleString('vi-VN') : ''
+      }));
+      
+      // Create workbook and worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Danh sách sinh viên');
+      
+      // Set column widths
+      const colWidths = [
+        { wch: 5 },   // STT
+        { wch: 25 },  // Tên
+        { wch: 15 },  // MSSV/MSNV
+        { wch: 25 },  // Email
+        { wch: 20 },  // Khoa
+        { wch: 20 },  // Ngành
+        { wch: 15 },  // Mã QR
+        { wch: 15 },  // Trạng thái
+        { wch: 20 },  // Thời gian check-in
+        { wch: 20 }   // Thời gian check-out
+      ];
+      ws['!cols'] = colWidths;
+      
+      // Generate Excel buffer
+      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      
+      // Generate filename with event name and date
+      const fileName = `DS_SinhVien_${event.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`;
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error('Export error:', error);
+      res.status(500).json({ message: 'Lỗi khi xuất file' });
+    }
+  });
+  
+  // Download template file for bulk import
   app.get('/api/attendees/template', async (req, res) => {
     const templateData = [
       {
