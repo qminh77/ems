@@ -83,8 +83,9 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
           setIsLoading(false);
           setCameraReady(true);
           console.log("Camera ready set to true");
+          setScanningStatus("Đang quét mã QR...");
           // Start detection after video is ready
-          setTimeout(() => startQRDetection(), 300);
+          startQRDetection();
         };
         
         const handleVideoError = (error: any) => {
@@ -153,14 +154,13 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
         
         // Force ready state after 1.5 seconds if we have stream
         setTimeout(() => {
-          if (streamRef.current && videoRef.current) {
+          if (streamRef.current && videoRef.current && !cameraReady) {
             console.log("Force clearing loading state after 1.5s");
             setIsLoading(false);
-            if (!cameraReady) {
-              setCameraReady(true);
-              console.log("Force set camera ready = true");
-              setTimeout(() => startQRDetection(), 300);
-            }
+            setCameraReady(true);
+            setScanningStatus("Đang quét mã QR...");
+            console.log("Force set camera ready = true");
+            startQRDetection();
           }
         }, 1500);
         
@@ -210,22 +210,28 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   };
 
   const startQRDetection = () => {
+    console.log("Starting QR detection...");
+    
     const detectFrame = () => {
-      if (!videoRef.current || !canvasRef.current || !cameraReady) {
+      if (!videoRef.current || !canvasRef.current) {
+        console.log("Video or canvas not ready");
+        animationRef.current = requestAnimationFrame(detectFrame);
         return;
       }
       
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       
-      if (!ctx) {
+      // Check if video is actually playing and has dimensions
+      if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+        console.log("Video not ready, state:", video.readyState, "dimensions:", video.videoWidth, "x", video.videoHeight);
         animationRef.current = requestAnimationFrame(detectFrame);
         return;
       }
       
-      // Check if video has data and dimensions
-      if (video.readyState < video.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) {
+        console.log("Canvas context not available");
         animationRef.current = requestAnimationFrame(detectFrame);
         return;
       }
@@ -233,41 +239,56 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       // Set canvas size to match video
       const width = video.videoWidth;
       const height = video.videoHeight;
-      
-      if (width === 0 || height === 0) {
-        animationRef.current = requestAnimationFrame(detectFrame);
-        return;
-      }
-      
       canvas.width = width;
       canvas.height = height;
       
       // Draw video frame to canvas
       ctx.drawImage(video, 0, 0, width, height);
       
-      // Get image data for QR detection
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      
-      // Use jsQR to detect QR code
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "dontInvert"
-      });
-      
-      if (code) {
-        // QR code found!
-        console.log("QR Code detected:", code.data);
-        setScanningStatus("Đã tìm thấy mã QR!");
-        onScan(code.data);
-        stopScanning();
-        onDeactivate();
-      } else {
-        // Continue scanning
-        animationRef.current = requestAnimationFrame(detectFrame);
+      try {
+        // Get image data for QR detection
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Try multiple inversion attempts for better detection
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth"  // Try both inverted and normal
+        });
+        
+        if (code && code.data) {
+          // QR code found!
+          console.log("QR Code detected:", code.data);
+          setScanningStatus("Đã tìm thấy mã QR!");
+          
+          // Stop scanning first
+          if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = 0;
+          }
+          
+          // Call the scan handler
+          onScan(code.data);
+          
+          // Stop camera and deactivate
+          setTimeout(() => {
+            stopScanning();
+            onDeactivate();
+          }, 100);
+          
+          return; // Exit the detection loop
+        }
+      } catch (error) {
+        console.error("Error detecting QR code:", error);
       }
+      
+      // Continue scanning
+      animationRef.current = requestAnimationFrame(detectFrame);
     };
     
-    // Start detection loop
-    animationRef.current = requestAnimationFrame(detectFrame);
+    // Start detection loop after a small delay
+    setTimeout(() => {
+      console.log("Starting detection loop...");
+      detectFrame();
+    }, 100);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -480,7 +501,13 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       <div className="text-center text-sm text-gray-500 space-y-1">
         <p>💡 Giữ mã QR trong khung vuông để quét tốt nhất</p>
         {active && cameraReady && (
-          <p className="text-primary font-medium animate-pulse">🔍 Đang tìm mã QR...</p>
+          <>
+            <p className="text-primary font-medium animate-pulse">🔍 Đang tìm mã QR...</p>
+            <p className="text-xs">Camera đang hoạt động - Di chuyển mã QR vào khung hình</p>
+          </>
+        )}
+        {active && !cameraReady && isLoading && (
+          <p className="text-xs text-orange-500">⏳ Đang khởi động camera...</p>
         )}
       </div>
     </div>
