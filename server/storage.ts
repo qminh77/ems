@@ -3,6 +3,7 @@ import {
   events,
   attendees,
   checkinLogs,
+  localAuth,
   type User,
   type UpsertUser,
   type Event,
@@ -11,14 +12,20 @@ import {
   type InsertAttendee,
   type CheckinLog,
   type InsertCheckinLog,
+  type LocalAuth,
+  type InsertLocalAuth,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
+  // User operations (required for Auth)
   getUser(id: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  createLocalAuth(auth: InsertLocalAuth): Promise<LocalAuth>;
+  getLocalAuthByUsername(username: string): Promise<LocalAuth | undefined>;
+  getLocalAuthByUserId(userId: string): Promise<LocalAuth | undefined>;
   
   // Event operations
   getEventsByUserId(userId: string): Promise<Event[]>;
@@ -76,6 +83,28 @@ export class DatabaseStorage implements IStorage {
   async getEventById(id: number): Promise<Event | undefined> {
     const [event] = await db.select().from(events).where(eq(events.id, id));
     return event;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [auth] = await db.select().from(localAuth).where(eq(localAuth.username, username));
+    if (!auth) return undefined;
+    const [user] = await db.select().from(users).where(eq(users.id, auth.userId));
+    return user;
+  }
+
+  async createLocalAuth(auth: InsertLocalAuth): Promise<LocalAuth> {
+    const [newAuth] = await db.insert(localAuth).values(auth).returning();
+    return newAuth;
+  }
+
+  async getLocalAuthByUsername(username: string): Promise<LocalAuth | undefined> {
+    const [auth] = await db.select().from(localAuth).where(eq(localAuth.username, username));
+    return auth;
+  }
+
+  async getLocalAuthByUserId(userId: string): Promise<LocalAuth | undefined> {
+    const [auth] = await db.select().from(localAuth).where(eq(localAuth.userId, userId));
+    return auth;
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
@@ -138,7 +167,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentCheckins(limit: number = 10): Promise<Array<CheckinLog & { attendee: Attendee; event: Event }>> {
-    return db
+    const results = await db
       .select({
         id: checkinLogs.id,
         attendeeId: checkinLogs.attendeeId,
@@ -154,6 +183,8 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(events, eq(attendees.eventId, events.id))
       .orderBy(desc(checkinLogs.timestamp))
       .limit(limit);
+    
+    return results as any;
   }
 
   async getDashboardStats(userId: string): Promise<{

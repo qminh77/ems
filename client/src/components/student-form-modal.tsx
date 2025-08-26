@@ -19,10 +19,10 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 
 const studentSchema = z.object({
   name: z.string().min(1, "Họ và tên là bắt buộc"),
+  studentId: z.string().min(1, "MSSV/MSNV là bắt buộc"),
   email: z.string().email("Email không hợp lệ").optional().or(z.literal("")),
-  phone: z.string().optional(),
-  studentId: z.string().optional(),
-  class: z.string().optional(),
+  faculty: z.string().optional(),
+  major: z.string().optional(),
 });
 
 type StudentFormData = z.infer<typeof studentSchema>;
@@ -43,10 +43,10 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
     resolver: zodResolver(studentSchema),
     defaultValues: {
       name: "",
-      email: "",
-      phone: "",
       studentId: "",
-      class: "",
+      email: "",
+      faculty: "",
+      major: "",
     },
   });
 
@@ -54,18 +54,18 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
     if (student) {
       form.reset({
         name: student.name || "",
-        email: student.email || "",
-        phone: student.phone || "",
         studentId: student.studentId || "",
-        class: student.class || "",
+        email: student.email || "",
+        faculty: student.faculty || "",
+        major: student.major || "",
       });
     } else {
       form.reset({
         name: "",
-        email: "",
-        phone: "",
         studentId: "",
-        class: "",
+        email: "",
+        faculty: "",
+        major: "",
       });
     }
   }, [student, form]);
@@ -135,15 +135,29 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
           )}
           
           <div>
-            <Label htmlFor="name">Họ và tên *</Label>
+            <Label htmlFor="name">Tên *</Label>
             <Input
               id="name"
               {...form.register("name")}
-              placeholder="Nhập họ và tên"
+              placeholder="Nguyễn Văn A"
               data-testid="input-student-name"
             />
             {form.formState.errors.name && (
               <p className="text-sm text-red-600 mt-1">{form.formState.errors.name.message}</p>
+            )}
+          </div>
+          
+          <div>
+            <Label htmlFor="studentId">MSSV/MSNV *</Label>
+            <Input
+              id="studentId"
+              {...form.register("studentId")}
+              placeholder="SV001 hoặc NV001"
+              data-testid="input-student-id"
+              disabled={isEditing}
+            />
+            {form.formState.errors.studentId && (
+              <p className="text-sm text-red-600 mt-1">{form.formState.errors.studentId.message}</p>
             )}
           </div>
           
@@ -153,7 +167,7 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               id="email"
               type="email"
               {...form.register("email")}
-              placeholder="email@student.edu.vn"
+              placeholder="email@example.com"
               data-testid="input-student-email"
             />
             {form.formState.errors.email && (
@@ -161,35 +175,23 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
             )}
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="phone">Số điện thoại</Label>
-              <Input
-                id="phone"
-                type="tel"
-                {...form.register("phone")}
-                placeholder="0123456789"
-                data-testid="input-student-phone"
-              />
-            </div>
-            <div>
-              <Label htmlFor="studentId">MSSV</Label>
-              <Input
-                id="studentId"
-                {...form.register("studentId")}
-                placeholder="20210001"
-                data-testid="input-student-id"
-              />
-            </div>
+          <div>
+            <Label htmlFor="faculty">Khoa</Label>
+            <Input
+              id="faculty"
+              {...form.register("faculty")}
+              placeholder="Công nghệ thông tin"
+              data-testid="input-student-faculty"
+            />
           </div>
           
           <div>
-            <Label htmlFor="class">Lớp</Label>
+            <Label htmlFor="major">Ngành</Label>
             <Input
-              id="class"
-              {...form.register("class")}
-              placeholder="CNTT01-K22"
-              data-testid="input-student-class"
+              id="major"
+              {...form.register("major")}
+              placeholder="Kỹ thuật phần mềm"
+              data-testid="input-student-major"
             />
           </div>
           

@@ -51,15 +51,15 @@ export const events = pgTable("events", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Attendees table
+// Attendees table (Updated with KHOA and NGANH fields)
 export const attendees = pgTable("attendees", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 100 }).notNull(),
+  studentId: varchar("student_id", { length: 50 }).notNull(), // MSSV/MSNV - Required
   email: varchar("email", { length: 100 }),
-  phone: varchar("phone", { length: 20 }),
-  studentId: varchar("student_id", { length: 50 }),
-  class: varchar("class", { length: 50 }),
+  faculty: varchar("faculty", { length: 100 }), // KHOA
+  major: varchar("major", { length: 100 }), // NGÀNH
   qrCode: varchar("qr_code", { length: 255 }).unique(),
   qrPath: varchar("qr_path", { length: 255 }),
   status: varchar("status", { length: 20 }).default("pending"), // pending, checked_in, checked_out
@@ -106,6 +106,16 @@ export const checkinLogsRelations = relations(checkinLogs, ({ one }) => ({
   }),
 }));
 
+// Add local auth table for standard login
+export const localAuth = pgTable("local_auth", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: varchar("user_id").notNull().unique().references(() => users.id),
+  username: varchar("username", { length: 100 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertEventSchema = createInsertSchema(events).omit({
   id: true,
@@ -127,6 +137,12 @@ export const insertCheckinLogSchema = createInsertSchema(checkinLogs).omit({
   timestamp: true,
 });
 
+export const insertLocalAuthSchema = createInsertSchema(localAuth).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -136,3 +152,5 @@ export type Attendee = typeof attendees.$inferSelect;
 export type InsertAttendee = z.infer<typeof insertAttendeeSchema>;
 export type CheckinLog = typeof checkinLogs.$inferSelect;
 export type InsertCheckinLog = z.infer<typeof insertCheckinLogSchema>;
+export type LocalAuth = typeof localAuth.$inferSelect;
+export type InsertLocalAuth = z.infer<typeof insertLocalAuthSchema>;

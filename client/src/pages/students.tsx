@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,14 +11,18 @@ import StudentFormModal from "@/components/student-form-modal";
 import QRCodeModal from "@/components/qr-code-modal";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAuth } from "@/hooks/useAuth";
+import { Upload, Download, FileSpreadsheet, Users, QrCode } from "lucide-react";
+import type { Event, Attendee } from "@shared/schema";
 
 export default function Students() {
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<any>(null);
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [editingStudent, setEditingStudent] = useState<Attendee | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Attendee | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -37,12 +41,12 @@ export default function Students() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: events = [], error: eventsError } = useQuery({
+  const { data: events = [], error: eventsError } = useQuery<Event[]>({
     queryKey: ["/api/events"],
     enabled: isAuthenticated,
   });
 
-  const { data: attendees = [], isLoading: attendeesLoading, error: attendeesError } = useQuery({
+  const { data: attendees = [], isLoading: attendeesLoading, error: attendeesError } = useQuery<Attendee[]>({
     queryKey: ["/api/events", selectedEventId, "attendees"],
     enabled: isAuthenticated && !!selectedEventId,
   });
@@ -68,7 +72,7 @@ export default function Students() {
     if (eventId && events.length > 0) {
       setSelectedEventId(eventId);
     } else if (events.length > 0 && !selectedEventId) {
-      setSelectedEventId(events[0].id.toString());
+      setSelectedEventId(events[0].id!.toString());
     }
   }, [events, selectedEventId]);
 
@@ -109,7 +113,7 @@ export default function Students() {
     setIsStudentModalOpen(true);
   };
 
-  const handleEditStudent = (student: any) => {
+  const handleEditStudent = (student: Attendee) => {
     setEditingStudent(student);
     setIsStudentModalOpen(true);
   };
@@ -120,9 +124,60 @@ export default function Students() {
     }
   };
 
-  const handleShowQR = (student: any) => {
+  const handleShowQR = (student: Attendee) => {
     setSelectedStudent(student);
     setIsQRModalOpen(true);
+  };
+
+  const handleDownloadTemplate = () => {
+    window.open('/api/attendees/template', '_blank');
+  };
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setIsImporting(true);
+    try {
+      const response = await fetch(`/api/events/${selectedEventId}/attendees/bulk`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Import thất bại');
+      }
+
+      const result = await response.json();
+      toast({
+        title: "Thành công",
+        description: result.message,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "attendees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      
+      if (result.errors && result.errors.length > 0) {
+        console.error('Import errors:', result.errors);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể import danh sách",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -147,13 +202,15 @@ export default function Students() {
     }
   };
 
-  const filteredAttendees = attendees.filter((attendee: any) =>
+  const filteredAttendees = attendees.filter((attendee) =>
     attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     attendee.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attendee.studentId?.toLowerCase().includes(searchQuery.toLowerCase())
+    attendee.studentId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    attendee.faculty?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    attendee.major?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedEvent = events.find((e: any) => e.id.toString() === selectedEventId);
+  const selectedEvent = events.find((e) => e.id?.toString() === selectedEventId);
 
   if (attendeesLoading) {
     return (
@@ -179,22 +236,50 @@ export default function Students() {
               <SelectValue placeholder="Chọn sự kiện" />
             </SelectTrigger>
             <SelectContent>
-              {events.map((event: any) => (
-                <SelectItem key={event.id} value={event.id.toString()}>
+              {events.map((event) => (
+                <SelectItem key={event.id} value={event.id!.toString()}>
                   {event.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button 
-            onClick={handleAddStudent}
-            className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors"
-            disabled={!selectedEventId}
-            data-testid="button-add-student"
-          >
-            <i className="fas fa-plus"></i>
-            <span>Thêm sinh viên</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleDownloadTemplate}
+              variant="outline"
+              className="flex items-center gap-2"
+              title="Tải file mẫu"
+            >
+              <Download className="h-4 w-4" />
+              File mẫu
+            </Button>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              className="flex items-center gap-2"
+              disabled={!selectedEventId || isImporting}
+              title="Nhập danh sách từ file Excel/CSV"
+            >
+              <Upload className="h-4 w-4" />
+              {isImporting ? 'Đang xử lý...' : 'Import Excel/CSV'}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleImportFile}
+              className="hidden"
+            />
+            <Button 
+              onClick={handleAddStudent}
+              className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+              disabled={!selectedEventId}
+              data-testid="button-add-student"
+            >
+              <i className="fas fa-plus"></i>
+              <span>Thêm sinh viên</span>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -257,19 +342,22 @@ export default function Students() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Sinh viên
+                        Tên
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        MSSV
+                        MSSV/MSNV
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Lớp
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Khoa
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ngành
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Trạng thái
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        QR Code
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Thao tác
@@ -277,7 +365,7 @@ export default function Students() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredAttendees.map((student: any, index: number) => (
+                    {filteredAttendees.map((student, index) => (
                       <tr key={student.id} className="hover:bg-gray-50" data-testid={`student-row-${index}`}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
@@ -290,53 +378,50 @@ export default function Students() {
                               <div className="text-sm font-medium text-gray-900" data-testid={`student-name-${index}`}>
                                 {student.name}
                               </div>
-                              {student.email && (
-                                <div className="text-sm text-gray-500" data-testid={`student-email-${index}`}>
-                                  {student.email}
-                                </div>
-                              )}
-                              {student.phone && (
-                                <div className="text-sm text-gray-500" data-testid={`student-phone-${index}`}>
-                                  {student.phone}
-                                </div>
-                              )}
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`student-id-${index}`}>
                           {student.studentId || "—"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`student-class-${index}`}>
-                          {student.class || "—"}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" data-testid={`student-email-2-${index}`}>
+                          {student.email || "—"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`student-faculty-${index}`}>
+                          {student.faculty || "—"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`student-major-${index}`}>
+                          {student.major || "—"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Badge className={getStatusColor(student.status)} data-testid={`student-status-${index}`}>
                             {getStatusText(student.status)}
                           </Badge>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleShowQR(student)}
-                            data-testid={`button-show-qr-${index}`}
-                          >
-                            <i className="fas fa-qrcode mr-1"></i>
-                            Xem QR
-                          </Button>
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center space-x-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleShowQR(student)}
+                              className="text-primary hover:text-blue-700"
+                              title="Hiển thị mã QR"
+                              data-testid={`button-show-qr-${index}`}
+                            >
+                              <QrCode className="h-4 w-4" />
+                            </Button>
                             <button 
                               onClick={() => handleEditStudent(student)}
                               className="text-primary hover:text-blue-700"
+                              title="Chỉnh sửa"
                               data-testid={`button-edit-student-${index}`}
                             >
                               <i className="fas fa-edit"></i>
                             </button>
                             <button 
-                              onClick={() => handleDeleteStudent(student.id)}
+                              onClick={() => handleDeleteStudent(student.id!)}
                               className="text-red-600 hover:text-red-800"
+                              title="Xóa"
                               data-testid={`button-delete-student-${index}`}
                             >
                               <i className="fas fa-trash"></i>
