@@ -242,6 +242,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/checkin", isAuthenticated, async (req: any, res) => {
     try {
       const { qrCode } = req.body;
+      const userId = req.user?.claims?.sub;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       
       if (!qrCode) {
         return res.status(400).json({ message: "QR code is required" });
@@ -255,6 +260,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const event = await storage.getEventById(attendee.eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // CRITICAL SECURITY CHECK: Verify user owns this event
+      if (event.userId !== userId) {
+        return res.status(403).json({ message: "Bạn không có quyền check-in cho sự kiện này" });
       }
       
       let action: 'check_in' | 'check_out';
@@ -309,8 +319,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/checkin/recent", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
       const limit = parseInt(req.query.limit as string) || 10;
-      const recentCheckins = await storage.getRecentCheckins(limit);
+      const recentCheckins = await storage.getRecentCheckinsByUserId(userId, limit);
       res.json(recentCheckins);
     } catch (error) {
       console.error("Error fetching recent check-ins:", error);
