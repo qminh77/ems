@@ -60,8 +60,8 @@ export const attendees = pgTable("attendees", {
   email: varchar("email", { length: 100 }),
   faculty: varchar("faculty", { length: 100 }), // KHOA
   major: varchar("major", { length: 100 }), // NGÀNH
-  qrCode: varchar("qr_code", { length: 255 }).unique(),
-  qrPath: varchar("qr_path", { length: 255 }),
+  qrCode: varchar("qr_code", { length: 50 }).unique(),
+  qrPath: text("qr_path"),
   status: varchar("status", { length: 20 }).default("pending"), // pending, checked_in, checked_out
   checkinTime: timestamp("checkin_time"),
   checkoutTime: timestamp("checkout_time"),

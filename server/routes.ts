@@ -15,6 +15,32 @@ import { Readable } from 'stream';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Helper function to generate unique QR code
+function generateUniqueQRCode(): string {
+  // Generate 10 random digits
+  const randomNumber = Math.floor(Math.random() * 10000000000).toString().padStart(10, '0');
+  return `CK_${randomNumber}`;
+}
+
+// Helper function to check if QR code exists
+async function ensureUniqueQRCode(): Promise<string> {
+  let qrCode: string;
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  do {
+    qrCode = generateUniqueQRCode();
+    const existing = await storage.getAttendeeByQrCode(qrCode);
+    if (!existing) {
+      return qrCode;
+    }
+    attempts++;
+  } while (attempts < maxAttempts);
+  
+  // Fallback to timestamp if can't generate unique in 10 attempts
+  return `CK_${Date.now()}`;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -134,8 +160,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "MSSV/MSNV là bắt buộc" });
       }
       
-      // Generate unique QR code with student ID
-      const qrCode = `CHK_${eventId}_${studentId}_${Date.now()}`;
+      // Generate unique QR code
+      const qrCode = await ensureUniqueQRCode();
       
       // Generate QR code as Data URL (stored in database)
       const qrDataUrl = await QRCode.toDataURL(qrCode);
@@ -286,7 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Regenerate QR if missing
       if (!attendee.qrCode || !attendee.qrPath) {
-        const qrCode = `CHK_${attendee.eventId}_${attendee.studentId}_${Date.now()}`;
+        const qrCode = await ensureUniqueQRCode();
         const qrDataUrl = await QRCode.toDataURL(qrCode);
         
         await storage.updateAttendee(attendeeId, {
@@ -416,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const attendeeData of validAttendees) {
         try {
           // Generate QR code
-          const qrCode = `CHK_${eventId}_${attendeeData.studentId}_${Date.now()}`;
+          const qrCode = await ensureUniqueQRCode();
           const qrDataUrl = await QRCode.toDataURL(qrCode);
           
           const attendee = await storage.createAttendee({

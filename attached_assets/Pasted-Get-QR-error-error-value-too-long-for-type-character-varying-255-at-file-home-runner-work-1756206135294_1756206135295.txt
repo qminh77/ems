@@ -1,0 +1,50 @@
+Get QR error: error: value too long for type character varying(255)
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async DatabaseStorage.updateAttendee (/home/runner/workspace/server/storage.ts:151:31)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:292:9) {
+  length: 99,
+  severity: 'ERROR',
+  code: '22001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'varchar.c',
+  line: '638',
+  routine: 'varchar'
+}
+6:01:45 PM [express] GET /api/attendees/2/qr 500 in 142ms :: {"message":"Lỗi khi lấy mã QR"}
+Get QR error: error: value too long for type character varying(255)
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async DatabaseStorage.updateAttendee (/home/runner/workspace/server/storage.ts:151:31)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:292:9) {
+  length: 99,
+  severity: 'ERROR',
+  code: '22001',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'varchar.c',
+  line: '638',
+  routine: 'varchar'
+}
+6:01:49 PM [express] GET /api/attendees/1/qr 500 in 193ms :: {"message":"Lỗi khi lấy mã QR"}
