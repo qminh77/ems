@@ -110,3 +110,8 @@
 .animate-scan {
   animation: scan 2s linear infinite;
 }
+
+/* Mobile safe area support */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}

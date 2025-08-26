@@ -27,37 +27,50 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile menu button */}
-      <div className="lg:hidden bg-white shadow-sm border-b">
+      {/* Mobile header */}
+      <div className="lg:hidden bg-white shadow-sm border-b fixed top-0 left-0 right-0 z-30">
         <div className="flex items-center justify-between px-4 py-3">
           <button 
             onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="text-gray-600 hover:text-gray-900"
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             data-testid="button-mobile-menu"
           >
             <i className="fas fa-bars text-xl"></i>
           </button>
           <div className="flex items-center space-x-2">
             <i className="fas fa-graduation-cap text-primary text-xl"></i>
-            <span className="font-bold text-lg">EMS Admin</span>
+            <span className="font-bold text-lg text-gray-900">EMS Admin</span>
           </div>
-          <div className="w-6"></div>
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <span className="text-white text-sm font-medium">
+                {(user as any)?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Sidebar */}
       <div 
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         data-testid="sidebar"
       >
         {/* Header */}
-        <div className="flex items-center justify-center h-16 bg-primary">
+        <div className="flex items-center justify-between h-16 bg-primary px-4">
           <div className="flex items-center space-x-2">
             <i className="fas fa-graduation-cap text-white text-xl"></i>
             <span className="text-white font-bold text-lg">EMS Admin</span>
           </div>
+          <button 
+            onClick={() => setIsMobileOpen(false)}
+            className="lg:hidden text-white hover:bg-white/10 p-2 rounded-lg transition-colors"
+            data-testid="button-close-sidebar"
+          >
+            <i className="fas fa-times text-lg"></i>
+          </button>
         </div>
         
         {/* Navigation */}

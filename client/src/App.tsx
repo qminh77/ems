@@ -12,6 +12,7 @@ import Checkin from "@/pages/checkin";
 import NotFound from "@/pages/not-found";
 import Sidebar from "@/components/sidebar";
 import Navbar from "@/components/navbar";
+import MobileNavigation from "@/components/mobile-navigation";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,7 +39,7 @@ function Router() {
     <div className="min-h-screen bg-background">
       <Sidebar />
       <Navbar />
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 pt-16 lg:pt-0 pb-20 lg:pb-0">
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/events" component={Events} />
@@ -47,6 +48,7 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </div>
+      <MobileNavigation />
     </div>
   );
 }
