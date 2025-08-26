@@ -9,7 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import StudentFormModal from "@/components/student-form-modal";
 import QRCodeModal from "@/components/qr-code-modal";
-import { Upload, Download, FileSpreadsheet, Users, QrCode, Archive } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, Users, QrCode, Archive, Pencil, Trash2 } from "lucide-react";
 import type { Event, Attendee } from "@shared/schema";
 
 export default function Students() {
@@ -385,33 +385,37 @@ export default function Students() {
                           </Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center justify-end gap-1">
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => handleShowQR(student)}
-                              className="text-primary hover:text-blue-700"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                               title="Hiển thị mã QR"
                               data-testid={`button-show-qr-${index}`}
                             >
                               <QrCode className="h-4 w-4" />
                             </Button>
-                            <button 
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               onClick={() => handleEditStudent(student)}
-                              className="text-primary hover:text-blue-700"
+                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                               title="Chỉnh sửa"
                               data-testid={`button-edit-student-${index}`}
                             >
-                              <i className="fas fa-edit"></i>
-                            </button>
-                            <button 
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               onClick={() => handleDeleteStudent(student.id!)}
-                              className="text-red-600 hover:text-red-800"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               title="Xóa"
                               data-testid={`button-delete-student-${index}`}
                             >
-                              <i className="fas fa-trash"></i>
-                            </button>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </td>
                       </tr>
