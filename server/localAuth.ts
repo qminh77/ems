@@ -56,6 +56,12 @@ export function setupLocalAuth(app: Express) {
         return res.status(400).json({ message: 'Tên đăng nhập đã tồn tại' });
       }
 
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email đã được đăng ký' });
+      }
+
       // Create user
       const userId = randomUUID();
       const user = await storage.upsertUser({
