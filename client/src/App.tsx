@@ -29,8 +29,9 @@ function Router() {
     );
   }
 
-  // If not authenticated (error or no user), show login page
-  if (!isAuthenticated || error) {
+  // If not authenticated, show login page
+  // Check both error and authentication status
+  if (!isAuthenticated) {
     return <LoginPage />;
   }
 
