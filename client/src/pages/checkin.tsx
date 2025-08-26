@@ -12,6 +12,7 @@ export default function Checkin() {
   const [manualCode, setManualCode] = useState("");
   const [scannerActive, setScannerActive] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
+  const [scanCooldown, setScanCooldown] = useState(false);
   const { toast } = useToast();
 
   const { data: recentCheckins = [] } = useQuery({
@@ -37,6 +38,12 @@ export default function Checkin() {
         description: data.message,
       });
       setManualCode("");
+      
+      // Thêm cooldown 3 giây sau khi quét thành công
+      setScanCooldown(true);
+      setTimeout(() => {
+        setScanCooldown(false);
+      }, 3000);
     },
     onError: (error) => {
       toast({
@@ -44,6 +51,12 @@ export default function Checkin() {
         description: "Mã QR không hợp lệ hoặc đã được sử dụng",
         variant: "destructive",
       });
+      
+      // Thêm cooldown ngắn hơn khi lỗi (1.5 giây)
+      setScanCooldown(true);
+      setTimeout(() => {
+        setScanCooldown(false);
+      }, 1500);
     },
   });
 
@@ -89,9 +102,19 @@ export default function Checkin() {
               <QRScanner
                 active={scannerActive}
                 onScan={handleQRScanned}
-                onActivate={() => setScannerActive(true)}
+                onActivate={() => !scanCooldown && setScannerActive(true)}
                 onDeactivate={() => setScannerActive(false)}
               />
+              
+              {/* Thông báo cooldown */}
+              {scanCooldown && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                  <p className="text-blue-600 text-sm">
+                    <i className="fas fa-clock mr-2"></i>
+                    Vui lòng đợi 3 giây trước khi quét mã tiếp theo...
+                  </p>
+                </div>
+              )}
 
               {/* Manual QR Code Input */}
               <div className="border-t pt-6">

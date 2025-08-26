@@ -17,6 +17,8 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastScannedRef = useRef<string>("");
+  const lastScanTimeRef = useRef<number>(0);
   
   const [isSupported, setIsSupported] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
@@ -24,6 +26,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   const [error, setError] = useState<string>("");
   const [scanningStatus, setScanningStatus] = useState<string>("Đang quét...");
   const [cameraReady, setCameraReady] = useState(false);
+  const [isInCooldown, setIsInCooldown] = useState(false);
 
   const startScanning = async () => {
     if (isLoading || hasPermission) {
@@ -84,6 +87,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
           setCameraReady(true);
           console.log("Camera ready set to true");
           setScanningStatus("Đang quét mã QR...");
+          setIsInCooldown(false);
           // Start detection after video is ready
           startQRDetection();
         };
@@ -159,6 +163,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
             setIsLoading(false);
             setCameraReady(true);
             setScanningStatus("Đang quét mã QR...");
+            setIsInCooldown(false);
             console.log("Force set camera ready = true");
             startQRDetection();
           }
@@ -204,8 +209,13 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       videoRef.current.srcObject = null;
     }
     
+    // Reset scan tracking
+    lastScannedRef.current = "";
+    lastScanTimeRef.current = 0;
+    
     setHasPermission(false);
     setCameraReady(false);
+    setIsInCooldown(false);
     setScanningStatus("Đã dừng quét");
   };
 
@@ -255,9 +265,29 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
         });
         
         if (code && code.data) {
-          // QR code found!
+          const currentTime = Date.now();
+          const timeSinceLastScan = currentTime - lastScanTimeRef.current;
+          
+          // Kiểm tra xem có phải cùng mã QR và trong thời gian chờ không (5 giây)
+          if (code.data === lastScannedRef.current && timeSinceLastScan < 5000) {
+            console.log("Same QR code detected within cooldown period, ignoring...");
+            setScanningStatus(`Vui lòng đợi ${Math.ceil((5000 - timeSinceLastScan) / 1000)} giây...`);
+            setIsInCooldown(true);
+            // Tiếp tục quét nhưng không xử lý
+            animationRef.current = requestAnimationFrame(detectFrame);
+            return;
+          }
+          
+          // Reset cooldown status nếu là mã mới
+          setIsInCooldown(false);
+          
+          // QR code mới hoặc đã hết thời gian chờ
           console.log("QR Code detected:", code.data);
           setScanningStatus("Đã tìm thấy mã QR!");
+          
+          // Lưu mã và thời gian quét
+          lastScannedRef.current = code.data;
+          lastScanTimeRef.current = currentTime;
           
           // Stop scanning first
           if (animationRef.current) {
@@ -417,7 +447,12 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
                 
                 {/* Status Text */}
                 <div className="absolute bottom-4 left-0 right-0 text-center">
-                  <p className="text-white bg-black bg-opacity-60 px-4 py-2 rounded-full text-sm inline-block">
+                  <p className={`text-white px-4 py-2 rounded-full text-sm inline-block ${
+                    isInCooldown 
+                      ? 'bg-orange-500 bg-opacity-90' 
+                      : 'bg-black bg-opacity-60'
+                  }`}>
+                    {isInCooldown && <i className="fas fa-clock mr-2 animate-pulse"></i>}
                     {scanningStatus}
                   </p>
                 </div>
