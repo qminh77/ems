@@ -12,6 +12,7 @@ import multer from 'multer';
 import csvParser from 'csv-parser';
 import * as XLSX from 'xlsx';
 import { Readable } from 'stream';
+import { z } from "zod";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -114,19 +115,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      const eventData = insertEventSchema.parse({ ...req.body, userId });
+      
+      // Xử lý chuỗi rỗng cho time fields
+      const processedData = {
+        ...req.body,
+        userId,
+        startTime: req.body.startTime === "" ? undefined : req.body.startTime,
+        endTime: req.body.endTime === "" ? undefined : req.body.endTime,
+      };
+      
+      const eventData = insertEventSchema.parse(processedData);
       const event = await storage.createEvent(eventData);
       res.status(201).json(event);
     } catch (error) {
       console.error("Error creating event:", error);
-      res.status(400).json({ message: "Failed to create event" });
+      
+      // Trả về thông báo lỗi chi tiết hơn
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Dữ liệu không hợp lệ",
+          errors: error.errors 
+        });
+      }
+      
+      // Kiểm tra lỗi từ database về thời gian
+      if (error instanceof Error && error.message.includes('time')) {
+        return res.status(400).json({ 
+          message: "Định dạng thời gian không hợp lệ. Vui lòng kiểm tra lại thời gian bắt đầu và kết thúc." 
+        });
+      }
+      
+      res.status(400).json({ message: "Không thể tạo sự kiện" });
     }
   });
 
   app.put("/api/events/:id", isAuthenticated, async (req: any, res) => {
     try {
       const eventId = parseInt(req.params.id);
-      const eventData = insertEventSchema.partial().parse(req.body);
+      
+      // Xử lý chuỗi rỗng cho time fields
+      const processedData = {
+        ...req.body,
+        startTime: req.body.startTime === "" ? undefined : req.body.startTime,
+        endTime: req.body.endTime === "" ? undefined : req.body.endTime,
+      };
+      
+      const eventData = insertEventSchema.partial().parse(processedData);
       const event = await storage.updateEvent(eventId, eventData);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
@@ -134,7 +168,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(event);
     } catch (error) {
       console.error("Error updating event:", error);
-      res.status(400).json({ message: "Failed to update event" });
+      
+      // Trả về thông báo lỗi chi tiết hơn
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Dữ liệu không hợp lệ",
+          errors: error.errors 
+        });
+      }
+      
+      // Kiểm tra lỗi từ database về thời gian
+      if (error instanceof Error && error.message.includes('time')) {
+        return res.status(400).json({ 
+          message: "Định dạng thời gian không hợp lệ. Vui lòng kiểm tra lại thời gian bắt đầu và kết thúc." 
+        });
+      }
+      
+      res.status(400).json({ message: "Không thể cập nhật sự kiện" });
     }
   });
 

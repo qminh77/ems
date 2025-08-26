@@ -46,6 +46,7 @@ export interface IStorage {
   // Check-in operations
   createCheckinLog(log: InsertCheckinLog): Promise<CheckinLog>;
   getRecentCheckins(limit?: number): Promise<Array<CheckinLog & { attendee: Attendee; event: Event }>>;
+  getRecentCheckinsByUserId(userId: string, limit?: number): Promise<Array<CheckinLog & { attendee: Attendee; event: Event }>>;
   
   // Statistics
   getDashboardStats(userId: string): Promise<{
@@ -187,6 +188,28 @@ export class DatabaseStorage implements IStorage {
       .from(checkinLogs)
       .innerJoin(attendees, eq(checkinLogs.attendeeId, attendees.id))
       .innerJoin(events, eq(attendees.eventId, events.id))
+      .orderBy(desc(checkinLogs.timestamp))
+      .limit(limit);
+    
+    return results as any;
+  }
+
+  async getRecentCheckinsByUserId(userId: string, limit: number = 10): Promise<Array<CheckinLog & { attendee: Attendee; event: Event }>> {
+    const results = await db
+      .select({
+        id: checkinLogs.id,
+        attendeeId: checkinLogs.attendeeId,
+        action: checkinLogs.action,
+        timestamp: checkinLogs.timestamp,
+        ipAddress: checkinLogs.ipAddress,
+        userAgent: checkinLogs.userAgent,
+        attendee: attendees,
+        event: events,
+      })
+      .from(checkinLogs)
+      .innerJoin(attendees, eq(checkinLogs.attendeeId, attendees.id))
+      .innerJoin(events, eq(attendees.eventId, events.id))
+      .where(eq(events.userId, userId))
       .orderBy(desc(checkinLogs.timestamp))
       .limit(limit);
     
