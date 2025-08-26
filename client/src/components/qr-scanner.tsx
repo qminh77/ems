@@ -26,6 +26,12 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   const [cameraReady, setCameraReady] = useState(false);
 
   const startScanning = async () => {
+    if (isLoading) {
+      console.log("Already loading, skipping...");
+      return;
+    }
+    
+    console.log("Starting scanner...");
     setIsLoading(true);
     setError("");
     setCameraReady(false);
@@ -34,13 +40,26 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       // Try simpler constraints first
       let stream: MediaStream;
       try {
+        console.log("Requesting environment camera...");
         // Try with environment camera first
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }
+          video: { 
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
         });
-      } catch {
+        console.log("Environment camera success");
+      } catch (envError) {
+        console.log("Environment camera failed, trying any camera...", envError);
         // Fallback to any camera
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+        console.log("Any camera success");
       }
       
       streamRef.current = stream;
@@ -56,37 +75,66 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
           stopScanning();
         }, 15000); // 15 second timeout
         
-        // Use multiple events to ensure video loads properly
+        // Handle video loading events
         const handleVideoReady = () => {
           clearTimeout(loadTimeout);
-          console.log("Video ready, video dimensions:", videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
+          console.log("Video ready, dimensions:", videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
           setIsLoading(false);
           setCameraReady(true);
-          // Start detection after a brief delay to ensure video is ready
-          setTimeout(() => startQRDetection(), 500);
+          // Start detection after video is ready
+          setTimeout(() => startQRDetection(), 300);
         };
         
-        videoRef.current.onloadedmetadata = handleVideoReady;
-        videoRef.current.oncanplay = handleVideoReady;
-        
-        // Also try to play manually if autoplay fails
-        videoRef.current.onloadstart = () => {
-          console.log("Video loading started");
+        const handleVideoError = (error: any) => {
+          clearTimeout(loadTimeout);
+          console.error("Video error:", error);
+          setError("Lỗi khi tải video từ camera");
+          setIsLoading(false);
         };
         
-        videoRef.current.onplay = () => {
-          console.log("Video started playing");
+        // Set up event listeners
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded");
+          handleVideoReady();
+        };
+        
+        videoRef.current.oncanplay = () => {
+          console.log("Video can play");
           if (!cameraReady) {
             handleVideoReady();
           }
         };
         
-        // Handle video errors
-        videoRef.current.onerror = () => {
-          clearTimeout(loadTimeout);
-          setError("Lỗi khi tải video từ camera");
-          setIsLoading(false);
+        videoRef.current.onplay = () => {
+          console.log("Video playing");
+          if (!cameraReady) {
+            handleVideoReady();
+          }
         };
+        
+        videoRef.current.onerror = handleVideoError;
+        
+        // Force play after a short delay
+        setTimeout(async () => {
+          if (videoRef.current && !cameraReady) {
+            try {
+              await videoRef.current.play();
+              console.log("Manual play successful");
+            } catch (playError) {
+              console.error("Manual play failed:", playError);
+              // Try one more time
+              setTimeout(() => {
+                if (videoRef.current && !cameraReady) {
+                  videoRef.current.play().catch(() => {
+                    setError("Không thể phát video từ camera. Vui lòng thử lại.");
+                    setIsLoading(false);
+                  });
+                }
+              }, 1000);
+            }
+          }
+        }, 1000);
+        
       }
     } catch (err: any) {
       setIsLoading(false);
@@ -254,12 +302,14 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   }, []);
 
   useEffect(() => {
-    if (active && !hasPermission) {
+    if (active && !hasPermission && !isLoading) {
+      console.log("Starting camera scan...");
       startScanning();
     } else if (!active && hasPermission) {
+      console.log("Stopping camera scan...");
       stopScanning();
     }
-  }, [active]);
+  }, [active, hasPermission, isLoading]);
 
   if (!isSupported) {
     return (
@@ -286,6 +336,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
               muted
               autoPlay
               data-testid="scanner-video"
+              style={{ display: cameraReady ? 'block' : 'none' }}
             />
             <canvas
               ref={canvasRef}
@@ -321,11 +372,11 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
             )}
             
             {/* Loading Overlay */}
-            {isLoading && (
-              <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+            {(isLoading || !cameraReady) && (
+              <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center">
                 <div className="text-center text-white">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                  <p>Đang khởi động camera...</p>
+                  <p className="text-sm">{isLoading ? "Đang khởi động camera..." : "Đang tải video..."}</p>
                 </div>
               </div>
             )}
