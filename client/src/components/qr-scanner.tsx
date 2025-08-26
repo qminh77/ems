@@ -81,6 +81,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
           console.log("Video ready, dimensions:", videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
           setIsLoading(false);
           setCameraReady(true);
+          console.log("Camera ready set to true");
           // Start detection after video is ready
           setTimeout(() => startQRDetection(), 300);
         };
@@ -114,18 +115,32 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
         
         videoRef.current.onerror = handleVideoError;
         
-        // Force play after a short delay
+        // Force play and ready state after a short delay if events don't fire
         setTimeout(async () => {
           if (videoRef.current && !cameraReady) {
             try {
               await videoRef.current.play();
               console.log("Manual play successful");
+              // If video is playing but events haven't fired, force ready state
+              if (videoRef.current.readyState >= 2) {
+                console.log("Forcing camera ready state");
+                handleVideoReady();
+              }
             } catch (playError) {
               console.error("Manual play failed:", playError);
               // Try one more time
               setTimeout(() => {
                 if (videoRef.current && !cameraReady) {
-                  videoRef.current.play().catch(() => {
+                  videoRef.current.play().then(() => {
+                    console.log("Second manual play successful");
+                    // Force ready after successful play
+                    setTimeout(() => {
+                      if (!cameraReady && videoRef.current?.readyState >= 2) {
+                        console.log("Force setting camera ready after successful play");
+                        handleVideoReady();
+                      }
+                    }, 500);
+                  }).catch(() => {
                     setError("Không thể phát video từ camera. Vui lòng thử lại.");
                     setIsLoading(false);
                   });
@@ -134,6 +149,16 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
             }
           }
         }, 1000);
+        
+        // Also try forcing ready state after 3 seconds if still not ready
+        setTimeout(() => {
+          if (!cameraReady && videoRef.current && streamRef.current) {
+            console.log("Timeout: Force setting camera ready");
+            setIsLoading(false);
+            setCameraReady(true);
+            setTimeout(() => startQRDetection(), 300);
+          }
+        }, 3000);
         
       }
     } catch (err: any) {
@@ -336,7 +361,6 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
               muted
               autoPlay
               data-testid="scanner-video"
-              style={{ display: cameraReady ? 'block' : 'none' }}
             />
             <canvas
               ref={canvasRef}
