@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import EventFormModal from "@/components/event-form-modal";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
+import { Calendar, Clock, MapPin, Users, Plus, Edit2, Trash2 } from "lucide-react";
+import type { Event } from "@shared/schema";
 
 export default function Events() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,7 +31,7 @@ export default function Events() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: events = [], isLoading: eventsLoading, error } = useQuery({
+  const { data: events = [], isLoading: eventsLoading, error } = useQuery<Event[]>({
     queryKey: ["/api/events"],
     enabled: isAuthenticated,
   });
@@ -85,7 +86,7 @@ export default function Events() {
     setIsModalOpen(true);
   };
 
-  const handleEditEvent = (event: any) => {
+  const handleEditEvent = (event: Event) => {
     setEditingEvent(event);
     setIsModalOpen(true);
   };
@@ -96,7 +97,7 @@ export default function Events() {
     }
   };
 
-  const getStatusColor = (event: any) => {
+  const getStatusColor = (event: Event) => {
     const today = new Date();
     const eventDate = new Date(event.eventDate);
     
@@ -109,7 +110,7 @@ export default function Events() {
     }
   };
 
-  const getStatusText = (event: any) => {
+  const getStatusText = (event: Event) => {
     const today = new Date();
     const eventDate = new Date(event.eventDate);
     
@@ -146,11 +147,11 @@ export default function Events() {
         </div>
         <Button 
           onClick={handleCreateEvent}
-          className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+          className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 shadow-lg transition-all hover:shadow-xl"
           data-testid="button-create-event"
         >
-          <i className="fas fa-plus"></i>
-          <span>Tạo sự kiện</span>
+          <Plus className="h-5 w-5" />
+          <span>Tạo sự kiện mới</span>
         </Button>
       </div>
 
@@ -168,8 +169,8 @@ export default function Events() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {events.map((event: any, index: number) => (
-            <Card key={event.id} className="border border-gray-100 overflow-hidden hover:shadow-md transition-shadow" data-testid={`event-card-${index}`}>
+          {events.map((event, index) => (
+            <Card key={event.id} className="border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1" data-testid={`event-card-${index}`}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
@@ -183,31 +184,33 @@ export default function Events() {
                   <div className="flex items-center space-x-1 ml-4">
                     <button 
                       onClick={() => handleEditEvent(event)}
-                      className="text-gray-400 hover:text-primary p-1"
+                      className="text-gray-400 hover:text-primary p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                      title="Chỉnh sửa"
                       data-testid={`button-edit-event-${index}`}
                     >
-                      <i className="fas fa-edit"></i>
+                      <Edit2 className="h-4 w-4" />
                     </button>
                     <button 
-                      onClick={() => handleDeleteEvent(event.id)}
-                      className="text-gray-400 hover:text-red-500 p-1"
+                      onClick={() => handleDeleteEvent(event.id!)}
+                      className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                      title="Xóa"
                       data-testid={`button-delete-event-${index}`}
                     >
-                      <i className="fas fa-trash"></i>
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex items-center text-sm text-gray-600">
-                    <i className="fas fa-calendar-alt text-gray-400 w-4 mr-3"></i>
+                    <Calendar className="text-gray-400 h-4 w-4 mr-3" />
                     <span data-testid={`event-date-${index}`}>
                       {new Date(event.eventDate).toLocaleDateString('vi-VN')}
                     </span>
                   </div>
                   {(event.startTime || event.endTime) && (
                     <div className="flex items-center text-sm text-gray-600">
-                      <i className="fas fa-clock text-gray-400 w-4 mr-3"></i>
+                      <Clock className="text-gray-400 h-4 w-4 mr-3" />
                       <span data-testid={`event-time-${index}`}>
                         {event.startTime} {event.endTime && `- ${event.endTime}`}
                       </span>
@@ -215,7 +218,7 @@ export default function Events() {
                   )}
                   {event.location && (
                     <div className="flex items-center text-sm text-gray-600">
-                      <i className="fas fa-map-marker-alt text-gray-400 w-4 mr-3"></i>
+                      <MapPin className="text-gray-400 h-4 w-4 mr-3" />
                       <span data-testid={`event-location-${index}`}>{event.location}</span>
                     </div>
                   )}
@@ -231,11 +234,12 @@ export default function Events() {
                     {getStatusText(event)}
                   </span>
                   <button 
-                    className="text-primary hover:text-blue-700 text-sm font-medium"
+                    className="text-primary hover:text-blue-700 text-sm font-semibold flex items-center gap-1 transition-colors"
                     onClick={() => window.location.href = `/students?eventId=${event.id}`}
                     data-testid={`link-view-attendees-${index}`}
                   >
-                    Xem sinh viên →
+                    <Users className="h-4 w-4" />
+                    <span>Xem sinh viên</span>
                   </button>
                 </div>
               </div>

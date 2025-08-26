@@ -247,21 +247,21 @@ export default function Students() {
             <Button
               onClick={handleDownloadTemplate}
               variant="outline"
-              className="flex items-center gap-2"
-              title="Tải file mẫu"
+              className="flex items-center gap-2 border-gray-300 hover:bg-gray-50"
+              title="Tải file mẫu Excel/CSV"
             >
               <Download className="h-4 w-4" />
-              File mẫu
+              <span className="hidden sm:inline">File mẫu</span>
             </Button>
             <Button
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 border-gray-300 hover:bg-gray-50"
               disabled={!selectedEventId || isImporting}
               title="Nhập danh sách từ file Excel/CSV"
             >
               <Upload className="h-4 w-4" />
-              {isImporting ? 'Đang xử lý...' : 'Import Excel/CSV'}
+              <span className="hidden sm:inline">{isImporting ? 'Đang xử lý...' : 'Import Excel/CSV'}</span>
             </Button>
             <input
               ref={fileInputRef}
@@ -272,12 +272,13 @@ export default function Students() {
             />
             <Button 
               onClick={handleAddStudent}
-              className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+              className="bg-primary hover:bg-blue-700 text-white px-4 sm:px-6 py-3 rounded-lg font-semibold flex items-center gap-2 shadow-lg transition-all hover:shadow-xl"
               disabled={!selectedEventId}
               data-testid="button-add-student"
             >
-              <i className="fas fa-plus"></i>
-              <span>Thêm sinh viên</span>
+              <Users className="h-5 w-5" />
+              <span className="hidden sm:inline">Thêm sinh viên</span>
+              <span className="sm:hidden">Thêm</span>
             </Button>
           </div>
         </div>
@@ -292,8 +293,8 @@ export default function Students() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border border-gray-100 overflow-hidden">
-          <CardHeader className="border-b border-gray-100">
+        <Card className="border border-gray-200 shadow-lg overflow-hidden">
+          <CardHeader className="border-b border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Danh sách sinh viên</h2>
@@ -339,7 +340,7 @@ export default function Students() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-100 border-b border-gray-200">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Tên
@@ -394,8 +395,8 @@ export default function Students() {
                           {student.major || "—"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge className={getStatusColor(student.status)} data-testid={`student-status-${index}`}>
-                            {getStatusText(student.status)}
+                          <Badge className={getStatusColor(student.status || 'pending')} data-testid={`student-status-${index}`}>
+                            {getStatusText(student.status || 'pending')}
                           </Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, UserPlus, LogIn } from "lucide-react";
+import { Eye, EyeOff, UserPlus, LogIn, GraduationCap, UserCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { queryClient } from "@/lib/queryClient";
 
 export default function LoginPage() {
@@ -122,6 +123,15 @@ export default function LoginPage() {
       });
       
       // Switch to login tab
+      // Clear form and switch to login
+      setRegisterData({
+        username: "",
+        password: "",
+        confirmPassword: "",
+        email: "",
+        firstName: "",
+        lastName: ""
+      });
       setLoginData({
         username: registerData.username,
         password: registerData.password
@@ -141,17 +151,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Hệ Thống Quản Lý Sự Kiện</CardTitle>
-          <CardDescription>Chào mừng bạn đến với EMS</CardDescription>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0">
+        <CardHeader className="text-center bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg py-8">
+          <div className="flex justify-center mb-4">
+            <div className="w-20 h-20 bg-white/20 backdrop-blur rounded-full flex items-center justify-center shadow-lg">
+              <GraduationCap className="h-10 w-10 text-white" />
+            </div>
+          </div>
+          <CardTitle className="text-3xl font-bold">Hệ Thống Quản Lý Sự Kiện</CardTitle>
+          <CardDescription className="text-white/90 mt-2">EMS - Event Management System Việt Nam</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Đăng nhập</TabsTrigger>
-              <TabsTrigger value="register">Đăng ký</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="login" className="font-semibold">Đăng nhập</TabsTrigger>
+              <TabsTrigger value="register" className="font-semibold">Đăng ký mới</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login" className="space-y-4">
@@ -191,7 +206,7 @@ export default function LoginPage() {
                     </button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-login-local">
+                <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" disabled={isLoading} data-testid="button-login-local">
                   <LogIn className="mr-2 h-4 w-4" />
                   Đăng nhập
                 </Button>
@@ -208,12 +223,12 @@ export default function LoginPage() {
               
               <Button 
                 variant="outline" 
-                className="w-full" 
+                className="w-full border-2 border-gray-300 hover:bg-gray-50" 
                 onClick={handleReplitLogin}
                 disabled={isLoading}
                 data-testid="button-login-replit"
               >
-                <img src="/favicon.ico" className="mr-2 h-4 w-4" alt="Replit" />
+                <UserCircle className="mr-2 h-5 w-5" />
                 Đăng nhập với Replit
               </Button>
             </TabsContent>
@@ -303,7 +318,7 @@ export default function LoginPage() {
                   />
                 </div>
                 
-                <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-register">
+                <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" disabled={isLoading} data-testid="button-register">
                   <UserPlus className="mr-2 h-4 w-4" />
                   Đăng ký tài khoản
                 </Button>

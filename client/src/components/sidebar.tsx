@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { LogOut, Menu, X } from "lucide-react";
+import type { User } from "@shared/schema";
 
 export default function Sidebar() {
   const [location, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: User | null };
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const navigation = [
@@ -87,13 +89,13 @@ export default function Sidebar() {
           <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
               <span className="text-white text-sm font-medium" data-testid="user-initials">
-                {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                {(user as any)?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate" data-testid="user-name">
-                {user?.firstName && user?.lastName 
-                  ? `${user.firstName} ${user.lastName}` 
+                {(user as any)?.firstName && (user as any)?.lastName 
+                  ? `${(user as any).firstName} ${(user as any).lastName}` 
                   : user?.email || 'User'}
               </p>
               <p className="text-xs text-gray-500 truncate" data-testid="user-email">
@@ -107,7 +109,7 @@ export default function Sidebar() {
               className="text-gray-400 hover:text-gray-600 p-1"
               data-testid="button-logout"
             >
-              <i className="fas fa-sign-out-alt"></i>
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
