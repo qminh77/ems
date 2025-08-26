@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -5,20 +6,59 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Download, Printer, QrCode } from "lucide-react";
+import type { Attendee } from "@shared/schema";
 
 interface QRCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  student?: any;
+  student?: Attendee | null;
 }
 
 export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalProps) {
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  
+  useEffect(() => {
+    if (student && isOpen) {
+      fetchQRCode();
+    }
+  }, [student, isOpen]);
+  
+  const fetchQRCode = async () => {
+    if (!student) return;
+    
+    setLoading(true);
+    try {
+      // If we have a data URL, use it directly
+      if (student.qrPath?.startsWith('data:')) {
+        setQrCodeUrl(student.qrPath);
+        setLoading(false);
+        return;
+      }
+      
+      // Otherwise fetch from server
+      const response = await fetch(`/api/attendees/${student.id}/qr`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setQrCodeUrl(data.qrCode || '');
+      }
+    } catch (error) {
+      console.error('Error fetching QR code:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!student) return null;
 
   const handleDownload = () => {
-    if (student.qrPath) {
+    if (qrCodeUrl) {
       const link = document.createElement('a');
-      link.href = `/${student.qrPath}`;
+      link.href = qrCodeUrl;
       link.download = `QR_${student.name}_${student.studentId || student.id}.png`;
       document.body.appendChild(link);
       link.click();
@@ -28,7 +68,7 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
-    if (printWindow && student.qrPath) {
+    if (printWindow && qrCodeUrl) {
       printWindow.document.write(`
         <html>
           <head>
@@ -57,10 +97,12 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
             <div class="qr-container">
               <h2>${student.name}</h2>
               <div class="info">
-                <p><strong>MSSV:</strong> ${student.studentId || "—"}</p>
-                <p><strong>Lớp:</strong> ${student.class || "—"}</p>
+                <p><strong>MSSV/MSNV:</strong> ${student.studentId || "—"}</p>
+                <p><strong>Email:</strong> ${student.email || "—"}</p>
+                <p><strong>Khoa:</strong> ${student.faculty || "—"}</p>
+                <p><strong>Ngành:</strong> ${student.major || "—"}</p>
               </div>
-              <img src="/${student.qrPath}" alt="QR Code" />
+              <img src="${qrCodeUrl}" alt="QR Code" />
             </div>
           </body>
         </html>
@@ -83,27 +125,40 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
               {student.name}
             </h3>
             <p className="text-sm text-gray-600" data-testid="qr-student-id">
-              MSSV: {student.studentId || "—"}
+              MSSV/MSNV: {student.studentId || "—"}
             </p>
-            <p className="text-sm text-gray-600" data-testid="qr-student-class">
-              Lớp: {student.class || "—"}
+            <p className="text-sm text-gray-600" data-testid="qr-student-email">
+              Email: {student.email || "—"}
+            </p>
+            <p className="text-sm text-gray-600" data-testid="qr-student-faculty">
+              Khoa: {student.faculty || "—"}
+            </p>
+            <p className="text-sm text-gray-600" data-testid="qr-student-major">
+              Ngành: {student.major || "—"}
             </p>
           </div>
           
           {/* QR Code Display */}
           <div className="flex justify-center mb-6">
-            {student.qrPath ? (
+            {loading ? (
+              <div className="w-64 h-64 border-2 border-gray-200 rounded-lg flex items-center justify-center bg-gray-50">
+                <div className="text-center text-gray-500">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-sm">Đang tải mã QR...</p>
+                </div>
+              </div>
+            ) : qrCodeUrl ? (
               <img 
-                src={`/${student.qrPath}`} 
+                src={qrCodeUrl} 
                 alt="QR Code" 
-                className="border border-gray-200 rounded-lg w-48 h-48"
+                className="border-2 border-gray-300 rounded-lg w-64 h-64 object-contain bg-white p-2"
                 data-testid="qr-code-image"
               />
             ) : (
-              <div className="w-48 h-48 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-100">
+              <div className="w-64 h-64 border-2 border-gray-200 rounded-lg flex items-center justify-center bg-gray-100">
                 <div className="text-center text-gray-500">
-                  <i className="fas fa-qrcode text-4xl mb-2"></i>
-                  <p className="text-sm">QR không khả dụng</p>
+                  <QrCode className="h-16 w-16 mb-2 mx-auto" />
+                  <p className="text-sm">Mã QR không khả dụng</p>
                 </div>
               </div>
             )}
@@ -112,19 +167,21 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
           <div className="flex items-center justify-center space-x-4">
             <Button 
               onClick={handleDownload}
-              disabled={!student.qrPath}
+              disabled={!qrCodeUrl || loading}
+              className="flex items-center gap-2"
               data-testid="button-download-qr"
             >
-              <i className="fas fa-download mr-2"></i>
+              <Download className="h-4 w-4" />
               Tải xuống
             </Button>
             <Button 
               variant="outline"
               onClick={handlePrint}
-              disabled={!student.qrPath}
+              disabled={!qrCodeUrl || loading}
+              className="flex items-center gap-2"
               data-testid="button-print-qr"
             >
-              <i className="fas fa-print mr-2"></i>
+              <Printer className="h-4 w-4" />
               In
             </Button>
           </div>

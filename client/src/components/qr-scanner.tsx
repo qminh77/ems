@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import jsQR from "jsqr";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Camera, CameraOff, Upload, QrCode } from "lucide-react";
 
 interface QRScannerProps {
   active: boolean;
@@ -13,7 +15,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const animationRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isSupported, setIsSupported] = useState(true);
@@ -21,115 +23,130 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [scanningStatus, setScanningStatus] = useState<string>("Đang quét...");
-
-  // QR Code detection using simple pattern matching
-  // In a production environment, you might want to use a library like jsQR
-  const detectQRCode = (imageData: ImageData): string | null => {
-    // This is a simplified QR detection - in production, use jsQR or similar
-    // For now, we'll use a simple approach that works with our generated QR codes
-    
-    // Convert image data to grayscale and look for QR patterns
-    const { data, width, height } = imageData;
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    
-    canvas.width = width;
-    canvas.height = height;
-    ctx.putImageData(imageData, 0, 0);
-    
-    // Use a simple pattern detection for QR codes starting with "CHK_"
-    // This is a simplified approach - in production, use proper QR detection
-    const text = extractTextFromImageData(imageData);
-    if (text && text.startsWith('CHK_')) {
-      return text;
-    }
-    
-    return null;
-  };
-
-  // Simplified text extraction - in production, use OCR or QR library
-  const extractTextFromImageData = (imageData: ImageData): string | null => {
-    // This is a placeholder for QR code extraction
-    // In a real application, you would use jsQR or a similar library
-    // For now, return null as we can't extract text without a proper QR library
-    return null;
-  };
+  const [cameraReady, setCameraReady] = useState(false);
 
   const startScanning = async () => {
     setIsLoading(true);
     setError("");
+    setCameraReady(false);
     
     try {
-      // Request camera permissions
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' } // Prefer back camera
-      });
+      // Request camera permissions with better constraints
+      const constraints = {
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
       
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       setHasPermission(true);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
         
-        // Wait for video to be ready
+        // Wait for video to be fully loaded
         videoRef.current.onloadedmetadata = () => {
-          setIsLoading(false);
-          startQRDetection();
+          videoRef.current?.play().then(() => {
+            setIsLoading(false);
+            setCameraReady(true);
+            startQRDetection();
+          }).catch(err => {
+            console.error("Error playing video:", err);
+            setError("Không thể khởi động camera");
+            setIsLoading(false);
+          });
         };
       }
-    } catch (err) {
+    } catch (err: any) {
       setIsLoading(false);
-      setError("Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.");
+      setHasPermission(false);
+      
+      if (err.name === 'NotAllowedError') {
+        setError("Bạn đã từ chối quyền truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt.");
+      } else if (err.name === 'NotFoundError') {
+        setError("Không tìm thấy camera. Vui lòng kiểm tra thiết bị của bạn.");
+      } else if (err.name === 'NotReadableError') {
+        setError("Camera đang được sử dụng bởi ứng dụng khác.");
+      } else {
+        setError("Không thể truy cập camera. Vui lòng thử lại.");
+      }
       console.error("Camera access error:", err);
     }
   };
 
   const stopScanning = () => {
+    // Stop animation frame
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = 0;
+    }
+    
+    // Stop all video tracks
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+      });
       streamRef.current = null;
     }
     
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    // Clear video source
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     
     setHasPermission(false);
+    setCameraReady(false);
     setScanningStatus("Đã dừng quét");
   };
 
   const startQRDetection = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    intervalRef.current = setInterval(() => {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        
-        // Draw video frame to canvas
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Get image data for QR detection
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // Try to detect QR code
-        const qrCode = detectQRCode(imageData);
-        if (qrCode) {
-          onScan(qrCode);
-          stopScanning();
-          onDeactivate();
-        }
+    const detectFrame = () => {
+      if (!videoRef.current || !canvasRef.current || !cameraReady) {
+        return;
       }
-    }, 100); // Check every 100ms
+      
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      
+      if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
+        animationRef.current = requestAnimationFrame(detectFrame);
+        return;
+      }
+      
+      // Set canvas size to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw video frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Get image data for QR detection
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      
+      // Use jsQR to detect QR code
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert"
+      });
+      
+      if (code) {
+        // QR code found!
+        console.log("QR Code detected:", code.data);
+        setScanningStatus("Đã tìm thấy mã QR!");
+        onScan(code.data);
+        stopScanning();
+        onDeactivate();
+      } else {
+        // Continue scanning
+        animationRef.current = requestAnimationFrame(detectFrame);
+      }
+    };
+    
+    // Start detection loop
+    animationRef.current = requestAnimationFrame(detectFrame);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,10 +166,11 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
         ctx.drawImage(img, 0, 0);
         
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const qrCode = detectQRCode(imageData);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
         
-        if (qrCode) {
-          onScan(qrCode);
+        if (code) {
+          onScan(code.data);
+          setError("");
         } else {
           setError("Không tìm thấy mã QR trong hình ảnh");
         }
@@ -167,13 +185,27 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
 
   useEffect(() => {
     // Check if camera is supported
-    setIsSupported(!!navigator.mediaDevices?.getUserMedia);
-    
-    // Cleanup on unmount or when active changes
-    return () => {
-      if (active) {
-        stopScanning();
+    const checkSupport = async () => {
+      try {
+        const hasMediaDevices = !!navigator.mediaDevices?.getUserMedia;
+        setIsSupported(hasMediaDevices);
+        
+        if (hasMediaDevices) {
+          // Check if we have any video devices
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const hasVideoDevice = devices.some(device => device.kind === 'videoinput');
+          setIsSupported(hasVideoDevice);
+        }
+      } catch {
+        setIsSupported(false);
       }
+    };
+    
+    checkSupport();
+    
+    // Cleanup on unmount
+    return () => {
+      stopScanning();
     };
   }, []);
 
@@ -189,9 +221,9 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
     return (
       <Card className="text-center py-8">
         <CardContent>
-          <i className="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
-          <p className="text-gray-600">Trình duyệt không hỗ trợ camera</p>
-          <p className="text-sm text-gray-500 mt-2">Vui lòng sử dụng nhập thủ công hoặc tải ảnh</p>
+          <QrCode className="h-12 w-12 text-red-500 mb-4 mx-auto" />
+          <p className="text-gray-600 font-medium">Camera không khả dụng</p>
+          <p className="text-sm text-gray-500 mt-2">Vui lòng sử dụng nhập thủ công hoặc tải ảnh QR</p>
         </CardContent>
       </Card>
     );
@@ -200,45 +232,73 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   return (
     <div className="space-y-4" data-testid="qr-scanner">
       {/* Scanner Display */}
-      <div className="relative mx-auto w-80 h-80 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 overflow-hidden">
+      <div className="relative mx-auto w-full max-w-md aspect-square bg-black rounded-lg overflow-hidden">
         {active && hasPermission ? (
           <>
             <video
               ref={videoRef}
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
               playsInline
               muted
+              autoPlay
               data-testid="scanner-video"
+              style={{ transform: 'scaleX(-1)' }} // Mirror the video for better UX
             />
             <canvas
               ref={canvasRef}
               className="hidden"
+              aria-hidden="true"
             />
+            
             {/* Scanning Overlay */}
-            <div className="absolute inset-4 border-2 border-primary rounded-lg animate-pulse">
-              <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary"></div>
-              <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary"></div>
-              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary"></div>
-              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary"></div>
-            </div>
-            <div className="absolute bottom-4 left-0 right-0 text-center">
-              <p className="text-white bg-black bg-opacity-50 px-3 py-1 rounded text-sm">
-                {scanningStatus}
-              </p>
-            </div>
+            {cameraReady && (
+              <>
+                <div className="absolute inset-0 bg-black bg-opacity-40">
+                  {/* Scanning Frame */}
+                  <div className="absolute inset-12 border-2 border-white rounded-lg">
+                    <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
+                    <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
+                    <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
+                    <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg"></div>
+                  </div>
+                  
+                  {/* Scanning Line Animation */}
+                  <div className="absolute inset-12">
+                    <div className="h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent animate-scan"></div>
+                  </div>
+                </div>
+                
+                {/* Status Text */}
+                <div className="absolute bottom-4 left-0 right-0 text-center">
+                  <p className="text-white bg-black bg-opacity-60 px-4 py-2 rounded-full text-sm inline-block">
+                    {scanningStatus}
+                  </p>
+                </div>
+              </>
+            )}
+            
+            {/* Loading Overlay */}
+            {isLoading && (
+              <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                  <p>Đang khởi động camera...</p>
+                </div>
+              </div>
+            )}
           </>
         ) : (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center h-full bg-gray-900">
             {isLoading ? (
-              <div className="text-center">
-                <i className="fas fa-spinner fa-spin text-primary text-4xl mb-4"></i>
-                <p className="text-gray-600">Đang mở camera...</p>
+              <div className="text-center text-white">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                <p>Đang mở camera...</p>
               </div>
             ) : (
-              <div className="text-center">
-                <i className="fas fa-qrcode text-gray-400 text-6xl mb-4"></i>
-                <p className="text-gray-600">Nhấn để bật camera</p>
-                <p className="text-sm text-gray-500 mt-2">Hoặc chọn file ảnh QR</p>
+              <div className="text-center text-gray-300">
+                <QrCode className="h-16 w-16 mb-4 mx-auto opacity-50" />
+                <p className="text-lg">Nhấn nút bên dưới để bật camera</p>
+                <p className="text-sm opacity-75 mt-2">Hoặc tải lên ảnh có mã QR</p>
               </div>
             )}
           </div>
@@ -247,41 +307,41 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
 
       {/* Error Display */}
       {error && (
-        <div className="text-center py-2">
-          <p className="text-red-600 text-sm">{error}</p>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-red-600 text-sm text-center">{error}</p>
         </div>
       )}
 
       {/* Control Buttons */}
-      <div className="flex space-x-4 justify-center">
+      <div className="flex gap-3 justify-center">
         {!active ? (
           <>
             <Button
               onClick={onActivate}
-              className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+              className="flex items-center gap-2"
               data-testid="button-start-camera"
             >
-              <i className="fas fa-camera"></i>
+              <Camera className="h-4 w-4" />
               <span>Bật camera</span>
             </Button>
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
-              className="px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+              className="flex items-center gap-2"
               data-testid="button-upload-qr"
             >
-              <i className="fas fa-upload"></i>
-              <span>Tải ảnh</span>
+              <Upload className="h-4 w-4" />
+              <span>Tải ảnh QR</span>
             </Button>
           </>
         ) : (
           <Button
             onClick={onDeactivate}
-            variant="outline"
-            className="px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+            variant="destructive"
+            className="flex items-center gap-2"
             data-testid="button-stop-camera"
           >
-            <i className="fas fa-stop"></i>
+            <CameraOff className="h-4 w-4" />
             <span>Dừng camera</span>
           </Button>
         )}
@@ -298,10 +358,10 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       />
 
       {/* Scanner Tips */}
-      <div className="text-center text-sm text-gray-500 mt-4">
-        <p>💡 Mẹo: Đặt mã QR trong khung vuông để quét tốt nhất</p>
-        {active && (
-          <p className="mt-1">🔍 Đang tìm mã QR trong hình ảnh...</p>
+      <div className="text-center text-sm text-gray-500 space-y-1">
+        <p>💡 Giữ mã QR trong khung vuông để quét tốt nhất</p>
+        {active && cameraReady && (
+          <p className="text-primary font-medium animate-pulse">🔍 Đang tìm mã QR...</p>
         )}
       </div>
     </div>
