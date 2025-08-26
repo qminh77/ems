@@ -130,15 +130,24 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  // Check if user is authenticated at all
+  if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
+  // For local auth users (no expires_at field)
+  if (!user.expires_at) {
+    // Local auth users are always valid once logged in
+    return next();
+  }
+
+  // For Replit OAuth users (with expires_at field)
   const now = Math.floor(Date.now() / 1000);
   if (now <= user.expires_at) {
     return next();
   }
 
+  // Try to refresh Replit OAuth token
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
     res.status(401).json({ message: "Unauthorized" });

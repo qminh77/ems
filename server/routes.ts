@@ -49,7 +49,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // Support both Replit auth and local auth
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -61,7 +65,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard stats
   app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // Support both Replit auth and local auth
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const stats = await storage.getDashboardStats(userId);
       res.json(stats);
     } catch (error) {
@@ -73,7 +81,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Event routes
   app.get("/api/events", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // Support both Replit auth and local auth
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const events = await storage.getEventsByUserId(userId);
       res.json(events);
     } catch (error) {
@@ -98,7 +110,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/events", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const eventData = insertEventSchema.parse({ ...req.body, userId });
       const event = await storage.createEvent(eventData);
       res.status(201).json(event);
@@ -125,7 +140,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/events/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const eventId = parseInt(req.params.id);
       const success = await storage.deleteEvent(eventId, userId);
       if (!success) {
