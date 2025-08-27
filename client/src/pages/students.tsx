@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import StudentFormModal from "@/components/student-form-modal";
 import QRCodeModal from "@/components/qr-code-modal";
-import { Upload, Download, FileSpreadsheet, Users, QrCode, Archive, Pencil, Trash2, UserX } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, Users, QrCode, Archive, Pencil, Trash2, UserX, UsersIcon, Shield } from "lucide-react";
 import type { Event, Attendee } from "@shared/schema";
+import { CollaboratorsManager } from "@/components/collaborators-manager";
 
 export default function Students() {
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -23,6 +25,8 @@ export default function Students() {
   const [isImporting, setIsImporting] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<"students" | "collaborators">("students");
+  const [userRole, setUserRole] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -32,6 +36,12 @@ export default function Students() {
 
   const { data: attendees = [], isLoading: attendeesLoading } = useQuery<Attendee[]>({
     queryKey: ["/api/events", selectedEventId, "attendees"],
+    enabled: !!selectedEventId,
+  });
+
+  // Get user role in event
+  const { data: eventAccess } = useQuery({
+    queryKey: [`/api/events/${selectedEventId}/access`],
     enabled: !!selectedEventId,
   });
 
@@ -362,7 +372,21 @@ export default function Students() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border border-gray-200 shadow-lg overflow-hidden">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "students" | "collaborators")}>
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="students" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Sinh viên
+            </TabsTrigger>
+            <TabsTrigger value="collaborators" className="flex items-center gap-2">
+              <UsersIcon className="h-4 w-4" />
+              Cộng tác viên
+              {eventAccess?.role === 'owner' && <Shield className="h-4 w-4 ml-1" />}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="students">
+            <Card className="border border-gray-200 shadow-lg overflow-hidden">
           <CardHeader className="border-b border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between">
               <div>
@@ -550,7 +574,13 @@ export default function Students() {
             )}
           </CardContent>
         </Card>
-      )}
+      </TabsContent>
+
+      <TabsContent value="collaborators">
+        <CollaboratorsManager eventId={Number(selectedEventId)} userRole={eventAccess?.role || ''} />
+      </TabsContent>
+    </Tabs>
+  )}
 
       <StudentFormModal
         isOpen={isStudentModalOpen}

@@ -81,6 +81,7 @@ export const checkinLogs = pgTable("checkin_logs", {
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   events: many(events),
+  collaborations: many(eventCollaborators),
 }));
 
 export const eventsRelations = relations(events, ({ one, many }) => ({
@@ -89,6 +90,7 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
     references: [users.id],
   }),
   attendees: many(attendees),
+  collaborators: many(eventCollaborators),
 }));
 
 export const attendeesRelations = relations(attendees, ({ one, many }) => ({
@@ -115,6 +117,36 @@ export const localAuth = pgTable("local_auth", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Event collaborators table - manages shared access to events
+export const eventCollaborators = pgTable("event_collaborators", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 50 }).notNull().default("collaborator"), // owner, collaborator
+  permissions: text("permissions").array().default(sql`ARRAY['view', 'checkin']::text[]`), // view, checkin, manage_attendees, edit_event
+  invitedBy: varchar("invited_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_event_collaborators_event").on(table.eventId),
+  index("idx_event_collaborators_user").on(table.userId),
+]);
+
+// Relations for event collaborators  
+export const eventCollaboratorsRelations = relations(eventCollaborators, ({ one }) => ({
+  event: one(events, {
+    fields: [eventCollaborators.eventId],
+    references: [events.id],
+  }),
+  user: one(users, {
+    fields: [eventCollaborators.userId],
+    references: [users.id],
+  }),
+  inviter: one(users, {
+    fields: [eventCollaborators.invitedBy],
+    references: [users.id],
+  }),
+}));
 
 // Insert schemas
 export const insertEventSchema = createInsertSchema(events).omit({
@@ -143,6 +175,11 @@ export const insertLocalAuthSchema = createInsertSchema(localAuth).omit({
   updatedAt: true,
 });
 
+export const insertEventCollaboratorSchema = createInsertSchema(eventCollaborators).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -154,3 +191,5 @@ export type CheckinLog = typeof checkinLogs.$inferSelect;
 export type InsertCheckinLog = z.infer<typeof insertCheckinLogSchema>;
 export type LocalAuth = typeof localAuth.$inferSelect;
 export type InsertLocalAuth = z.infer<typeof insertLocalAuthSchema>;
+export type EventCollaborator = typeof eventCollaborators.$inferSelect;
+export type InsertEventCollaborator = z.infer<typeof insertEventCollaboratorSchema>;

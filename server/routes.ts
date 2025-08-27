@@ -20,6 +20,30 @@ import { cacheManager } from './cacheManager';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Middleware to check event access (owner or collaborator)
+async function checkEventAccess(req: any, res: any, next: any) {
+  try {
+    const userId = req.user?.claims?.sub;
+    const eventId = parseInt(req.params.id || req.params.eventId);
+    
+    if (!userId || !eventId || isNaN(eventId)) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const access = await storage.checkEventAccess(eventId, userId);
+    if (!access.hasAccess) {
+      return res.status(403).json({ message: "Bạn không có quyền truy cập sự kiện này" });
+    }
+    
+    // Attach access info to request
+    req.eventAccess = access;
+    next();
+  } catch (error) {
+    console.error("Error checking event access:", error);
+    res.status(500).json({ message: "Failed to check access" });
+  }
+}
+
 // Helper function to generate unique QR code
 function generateUniqueQRCode(): string {
   // Generate 10 random digits
@@ -104,22 +128,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      const events = await storage.getEventsByUserId(userId);
-      res.json(events);
+      // Get owned events
+      const ownedEvents = await storage.getEventsByUserId(userId);
+      
+      // Get collaborated events  
+      const collaboratedEvents = await storage.getUserCollaborations(userId);
+      
+      // Combine and mark which are owned vs collaborated
+      const allEvents = [
+        ...ownedEvents.map(e => ({ ...e, role: 'owner' })),
+        ...collaboratedEvents.map(e => ({ ...e, role: 'collaborator' }))
+      ];
+      
+      res.json(allEvents);
     } catch (error) {
       console.error("Error fetching events:", error);
       res.status(500).json({ message: "Failed to fetch events" });
     }
   });
 
-  app.get("/api/events/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:id", isAuthenticated, checkEventAccess, async (req: any, res) => {
     try {
       const eventId = parseInt(req.params.id);
       const event = await storage.getEventById(eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
-      res.json(event);
+      // Include role information from access check
+      res.json({ ...event, role: req.eventAccess.role });
     } catch (error) {
       console.error("Error fetching event:", error);
       res.status(500).json({ message: "Failed to fetch event" });
@@ -166,7 +202,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/events/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/events/:id", isAuthenticated, checkEventAccess, async (req: any, res) => {
+    // Check if user has edit permission
+    if (req.eventAccess.role !== 'owner' && !req.eventAccess.permissions?.includes('edit_event')) {
+      return res.status(403).json({ message: "Bạn không có quyền chỉnh sửa sự kiện này" });
+    }
     try {
       const eventId = parseInt(req.params.id);
       
@@ -205,8 +245,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/events/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/events/:id", isAuthenticated, checkEventAccess, async (req: any, res) => {
     try {
+      // Only owner can delete
+      if (req.eventAccess.role !== 'owner') {
+        return res.status(403).json({ message: "Chỉ chủ sự kiện mới có thể xóa" });
+      }
+      
       const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
@@ -224,7 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Attendee routes
-  app.get("/api/events/:eventId/attendees", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/attendees", isAuthenticated, checkEventAccess, async (req: any, res) => {
     try {
       const eventId = parseInt(req.params.eventId);
       const attendees = await storage.getAttendeesByEventId(eventId);
@@ -854,6 +899,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Bulk import error:', error);
       res.status(500).json({ message: 'Lỗi khi nhập danh sách sinh viên' });
+    }
+  });
+
+  // Collaborator routes
+  // Search users for adding as collaborators
+  app.get("/api/users/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.length < 2) {
+        return res.json([]);
+      }
+      
+      const users = await storage.searchUsersByEmailOrUsername(query);
+      // Don't expose sensitive data
+      const safeUsers = users.map(u => ({
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        profileImageUrl: u.profileImageUrl
+      }));
+      
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ message: "Failed to search users" });
+    }
+  });
+
+  // Get collaborators for an event
+  app.get("/api/events/:id/collaborators", isAuthenticated, checkEventAccess, async (req: any, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const collaborators = await storage.getEventCollaborators(eventId);
+      res.json(collaborators);
+    } catch (error) {
+      console.error("Error fetching collaborators:", error);
+      res.status(500).json({ message: "Failed to fetch collaborators" });
+    }
+  });
+
+  // Add a collaborator to an event  
+  app.post("/api/events/:id/collaborators", isAuthenticated, checkEventAccess, async (req: any, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const { userId: targetUserId, permissions } = req.body;
+      const invitedBy = req.user?.claims?.sub;
+      
+      // Check if user has permission to add collaborators (only owner can add)
+      if (req.eventAccess.role !== 'owner') {
+        return res.status(403).json({ message: "Chỉ chủ sự kiện mới có thể thêm cộng tác viên" });
+      }
+      
+      // Check if user is already a collaborator
+      const existingAccess = await storage.checkEventAccess(eventId, targetUserId);
+      if (existingAccess.hasAccess) {
+        return res.status(400).json({ message: "Người dùng đã là cộng tác viên của sự kiện này" });
+      }
+      
+      // Add collaborator
+      const collaborator = await storage.addCollaborator({
+        eventId,
+        userId: targetUserId,
+        role: 'collaborator',
+        permissions: permissions || ['view', 'checkin'],
+        invitedBy
+      });
+      
+      res.status(201).json(collaborator);
+    } catch (error) {
+      console.error("Error adding collaborator:", error);
+      res.status(500).json({ message: "Failed to add collaborator" });
+    }
+  });
+
+  // Update collaborator permissions
+  app.patch("/api/events/:id/collaborators/:userId", isAuthenticated, checkEventAccess, async (req: any, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const targetUserId = req.params.userId;
+      const { permissions } = req.body;
+      
+      // Only owner can update permissions
+      if (req.eventAccess.role !== 'owner') {
+        return res.status(403).json({ message: "Chỉ chủ sự kiện mới có thể thay đổi quyền hạn" });
+      }
+      
+      const updated = await storage.updateCollaboratorPermissions(eventId, targetUserId, permissions);
+      if (!updated) {
+        return res.status(404).json({ message: "Không tìm thấy cộng tác viên" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating collaborator:", error);
+      res.status(500).json({ message: "Failed to update collaborator" });
+    }
+  });
+
+  // Remove a collaborator
+  app.delete("/api/events/:id/collaborators/:userId", isAuthenticated, checkEventAccess, async (req: any, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const targetUserId = req.params.userId;
+      const currentUserId = req.user?.claims?.sub;
+      
+      // Only owner can remove collaborators, or collaborator can remove themselves
+      if (req.eventAccess.role !== 'owner' && targetUserId !== currentUserId) {
+        return res.status(403).json({ message: "Không có quyền xóa cộng tác viên này" });
+      }
+      
+      const success = await storage.removeCollaborator(eventId, targetUserId);
+      if (!success) {
+        return res.status(404).json({ message: "Không tìm thấy cộng tác viên" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing collaborator:", error);
+      res.status(500).json({ message: "Failed to remove collaborator" });
+    }
+  });
+
+  // Get all events (including collaborated ones)
+  app.get("/api/all-events", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      // Get owned events
+      const ownedEvents = await storage.getEventsByUserId(userId);
+      
+      // Get collaborated events  
+      const collaboratedEvents = await storage.getUserCollaborations(userId);
+      
+      // Combine and mark which are owned vs collaborated
+      const allEvents = [
+        ...ownedEvents.map(e => ({ ...e, role: 'owner' })),
+        ...collaboratedEvents.map(e => ({ ...e, role: 'collaborator' }))
+      ];
+      
+      res.json(allEvents);
+    } catch (error) {
+      console.error("Error fetching all events:", error);
+      res.status(500).json({ message: "Failed to fetch events" });
     }
   });
 

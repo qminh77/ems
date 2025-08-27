@@ -4,6 +4,7 @@ import {
   attendees,
   checkinLogs,
   localAuth,
+  eventCollaborators,
   type User,
   type UpsertUser,
   type Event,
@@ -14,6 +15,8 @@ import {
   type InsertCheckinLog,
   type LocalAuth,
   type InsertLocalAuth,
+  type EventCollaborator,
+  type InsertEventCollaborator,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -59,6 +62,15 @@ export interface IStorage {
     todayCheckins: number;
     activeEvents: number;
   }>;
+  
+  // Collaborator operations
+  addCollaborator(collaborator: InsertEventCollaborator): Promise<EventCollaborator>;
+  removeCollaborator(eventId: number, userId: string): Promise<boolean>;
+  getEventCollaborators(eventId: number): Promise<Array<EventCollaborator & { user: User }>>;
+  getUserCollaborations(userId: string): Promise<Event[]>;
+  checkEventAccess(eventId: number, userId: string): Promise<{ hasAccess: boolean; role?: string; permissions?: string[] }>;
+  updateCollaboratorPermissions(eventId: number, userId: string, permissions: string[]): Promise<EventCollaborator | undefined>;
+  searchUsersByEmailOrUsername(query: string): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -303,6 +315,118 @@ export class DatabaseStorage implements IStorage {
       todayCheckins: stats.todayCheckins || 0,
       activeEvents: stats.activeEvents || 0,
     };
+  }
+
+  // Collaborator operations implementations
+  async addCollaborator(collaborator: InsertEventCollaborator): Promise<EventCollaborator> {
+    const [newCollaborator] = await db.insert(eventCollaborators).values(collaborator).returning();
+    return newCollaborator;
+  }
+
+  async removeCollaborator(eventId: number, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(eventCollaborators)
+      .where(and(eq(eventCollaborators.eventId, eventId), eq(eventCollaborators.userId, userId)));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getEventCollaborators(eventId: number): Promise<Array<EventCollaborator & { user: User }>> {
+    const results = await db
+      .select({
+        id: eventCollaborators.id,
+        eventId: eventCollaborators.eventId,
+        userId: eventCollaborators.userId,
+        role: eventCollaborators.role,
+        permissions: eventCollaborators.permissions,
+        invitedBy: eventCollaborators.invitedBy,
+        createdAt: eventCollaborators.createdAt,
+        user: users,
+      })
+      .from(eventCollaborators)
+      .innerJoin(users, eq(eventCollaborators.userId, users.id))
+      .where(eq(eventCollaborators.eventId, eventId));
+    
+    return results as any;
+  }
+
+  async getUserCollaborations(userId: string): Promise<Event[]> {
+    // Get events where user is a collaborator
+    const collaboratedEvents = await db
+      .select({ event: events })
+      .from(eventCollaborators)
+      .innerJoin(events, eq(eventCollaborators.eventId, events.id))
+      .where(eq(eventCollaborators.userId, userId));
+    
+    return collaboratedEvents.map(r => r.event);
+  }
+
+  async checkEventAccess(eventId: number, userId: string): Promise<{ hasAccess: boolean; role?: string; permissions?: string[] }> {
+    // Check if user is the event owner
+    const [event] = await db.select().from(events).where(eq(events.id, eventId));
+    if (event && event.userId === userId) {
+      return { hasAccess: true, role: 'owner', permissions: ['all'] };
+    }
+
+    // Check if user is a collaborator
+    const [collaborator] = await db
+      .select()
+      .from(eventCollaborators)
+      .where(and(eq(eventCollaborators.eventId, eventId), eq(eventCollaborators.userId, userId)));
+    
+    if (collaborator) {
+      return { 
+        hasAccess: true, 
+        role: collaborator.role, 
+        permissions: collaborator.permissions as string[]
+      };
+    }
+
+    return { hasAccess: false };
+  }
+
+  async updateCollaboratorPermissions(eventId: number, userId: string, permissions: string[]): Promise<EventCollaborator | undefined> {
+    const [updated] = await db
+      .update(eventCollaborators)
+      .set({ permissions })
+      .where(and(eq(eventCollaborators.eventId, eventId), eq(eventCollaborators.userId, userId)))
+      .returning();
+    
+    return updated;
+  }
+
+  async searchUsersByEmailOrUsername(query: string): Promise<User[]> {
+    const lowercaseQuery = query.toLowerCase();
+    
+    // Search in users table by email
+    const usersByEmail = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.email}) LIKE ${`%${lowercaseQuery}%`}`)
+      .limit(10);
+
+    // Search in localAuth table by username, then get users
+    const authResults = await db
+      .select()
+      .from(localAuth)
+      .where(sql`lower(${localAuth.username}) LIKE ${`%${lowercaseQuery}%`}`)
+      .limit(10);
+    
+    const userIds = authResults.map(auth => auth.userId);
+    let usersByUsername: User[] = [];
+    if (userIds.length > 0) {
+      usersByUsername = await db
+        .select()
+        .from(users)
+        .where(sql`${users.id} = ANY(${userIds})`);
+    }
+
+    // Combine and deduplicate results
+    const allUsers = [...usersByEmail, ...usersByUsername];
+    const uniqueUsers = Array.from(
+      new Map(allUsers.map(user => [user.id, user])).values()
+    );
+
+    return uniqueUsers;
   }
 }
 
