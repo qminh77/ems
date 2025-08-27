@@ -15,6 +15,7 @@ import * as XLSX from 'xlsx';
 import { Readable } from 'stream';
 import { z } from "zod";
 import archiver from 'archiver';
+import { wsManager } from './websocket';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -346,14 +347,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Log the action
-      await storage.createCheckinLog({
+      const checkinLog = await storage.createCheckinLog({
         attendeeId: attendee.id,
         action,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent') || '',
       });
       
-      res.json({
+      const responseData = {
         success: true,
         action,
         message,
@@ -362,7 +363,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: newStatus,
         },
         event,
+      };
+      
+      // Broadcast check-in update to all connected clients
+      wsManager.broadcastCheckinUpdate(userId, {
+        ...checkinLog,
+        attendee: {
+          ...attendee,
+          status: newStatus,
+        },
+        event,
+        action,
+        timestamp: new Date(),
       });
+      
+      // Broadcast updated stats
+      const stats = await storage.getDashboardStats(userId);
+      wsManager.broadcastStatsUpdate(userId, stats);
+      
+      // Broadcast attendee update for the event
+      wsManager.broadcastAttendeeUpdate(userId, attendee.eventId, {
+        ...attendee,
+        status: newStatus,
+        checkinTime: action === 'check_in' ? new Date() : attendee.checkinTime,
+        checkoutTime: action === 'check_out' ? new Date() : attendee.checkoutTime,
+      });
+      
+      res.json(responseData);
     } catch (error) {
       console.error("Error processing check-in:", error);
       res.status(500).json({ message: "Failed to process check-in" });

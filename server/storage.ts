@@ -132,7 +132,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(events)
       .where(and(eq(events.id, id), eq(events.userId, userId)));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getAttendeesByEventId(eventId: number): Promise<Attendee[]> {
@@ -165,7 +165,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAttendee(id: number): Promise<boolean> {
     const result = await db.delete(attendees).where(eq(attendees.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async createCheckinLog(log: InsertCheckinLog): Promise<CheckinLog> {

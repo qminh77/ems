@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,20 +7,24 @@ import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import QRScanner from "@/components/qr-scanner";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { RealTimeIndicator } from "@/components/real-time-indicator";
 
 export default function Checkin() {
   const [manualCode, setManualCode] = useState("");
   const [scannerActive, setScannerActive] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
   const [scanCooldown, setScanCooldown] = useState(false);
+  const [realtimeUpdate, setRealtimeUpdate] = useState<any>(null);
   const { toast } = useToast();
+  const { isConnected, lastMessage } = useWebSocket();
 
-  const { data: recentCheckins = [] } = useQuery({
+  const { data: recentCheckins = [] } = useQuery<any[]>({
     queryKey: ["/api/checkin/recent"],
-    refetchInterval: 5000, // Refresh every 5 seconds
+    refetchInterval: isConnected ? false : 5000, // Only poll if WebSocket is not connected
   });
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<any>({
     queryKey: ["/api/dashboard/stats"],
   });
 
@@ -83,8 +87,26 @@ export default function Checkin() {
     return action === 'check_in' ? 'fa-sign-in-alt' : 'fa-sign-out-alt';
   };
 
+  // Handle real-time updates from WebSocket
+  useEffect(() => {
+    if (lastMessage?.type === 'checkin_update' && lastMessage?.data) {
+      setRealtimeUpdate({
+        action: lastMessage.data.action,
+        attendeeName: lastMessage.data.attendee.name,
+        studentId: lastMessage.data.attendee.studentId,
+        timestamp: lastMessage.data.timestamp
+      });
+      // Clear after animation
+      setTimeout(() => setRealtimeUpdate(null), 6000);
+    }
+  }, [lastMessage]);
+
   return (
     <div className="p-6" data-testid="page-checkin">
+      {/* Real-time update indicator */}
+      {realtimeUpdate && (
+        <RealTimeIndicator {...realtimeUpdate} />
+      )}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Check-in/Check-out</h1>
         <p className="text-gray-600 mt-2">Quét mã QR để check-in/check-out sinh viên</p>

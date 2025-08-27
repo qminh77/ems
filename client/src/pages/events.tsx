@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import EventFormModal from "@/components/event-form-modal";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { Calendar, Clock, MapPin, Users, Plus, Edit2, Trash2 } from "lucide-react";
 import type { Event } from "@shared/schema";
 
@@ -12,9 +13,11 @@ export default function Events() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const { toast } = useToast();
+  const { isConnected } = useWebSocket();
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
+    refetchInterval: isConnected ? false : 10000, // Only poll if WebSocket is not connected
   });
 
   const deleteEventMutation = useMutation({

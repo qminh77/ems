@@ -1,13 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 export default function Dashboard() {
+  const { isConnected } = useWebSocket();
+  
   const { data: stats, isLoading: statsLoading } = useQuery<any>({
     queryKey: ["/api/dashboard/stats"],
+    refetchInterval: isConnected ? false : 10000, // Only poll if WebSocket is not connected
   });
 
   const { data: events = [] } = useQuery<any[]>({
     queryKey: ["/api/events"],
+    refetchInterval: isConnected ? false : 10000, // Only poll if WebSocket is not connected
   });
 
   if (statsLoading) {
