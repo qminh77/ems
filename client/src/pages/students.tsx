@@ -45,6 +45,7 @@ export default function Students() {
     enabled: !!selectedEventId,
   });
 
+
   // Set default event if URL has eventId parameter
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -381,7 +382,7 @@ export default function Students() {
             <TabsTrigger value="collaborators" className="flex items-center gap-2">
               <UsersIcon className="h-4 w-4" />
               Cộng tác viên
-              {eventAccess?.role === 'owner' && <Shield className="h-4 w-4 ml-1" />}
+              {eventAccess && 'role' in eventAccess && eventAccess.role === 'owner' && <Shield className="h-4 w-4 ml-1" />}
             </TabsTrigger>
           </TabsList>
 
@@ -577,7 +578,7 @@ export default function Students() {
       </TabsContent>
 
       <TabsContent value="collaborators">
-        <CollaboratorsManager eventId={Number(selectedEventId)} userRole={eventAccess?.role || ''} />
+        <CollaboratorsManager eventId={Number(selectedEventId)} userRole={(eventAccess && 'role' in eventAccess) ? eventAccess.role || '' : ''} />
       </TabsContent>
     </Tabs>
   )}

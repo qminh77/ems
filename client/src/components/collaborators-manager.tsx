@@ -108,12 +108,9 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
     mutationFn: async () => {
       if (!selectedUser) return;
       
-      return apiRequest(`/api/events/${eventId}/collaborators`, {
-        method: 'POST',
-        body: JSON.stringify({
-          userId: selectedUser.id,
-          permissions: selectedPermissions,
-        }),
+      return apiRequest('POST', `/api/events/${eventId}/collaborators`, {
+        userId: selectedUser.id,
+        permissions: selectedPermissions,
       });
     },
     onSuccess: () => {
@@ -139,9 +136,7 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
   // Remove collaborator mutation
   const removeCollaboratorMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return apiRequest(`/api/events/${eventId}/collaborators/${userId}`, {
-        method: 'DELETE',
-      });
+      return apiRequest('DELETE', `/api/events/${eventId}/collaborators/${userId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/collaborators`] });
@@ -162,10 +157,7 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
   // Update permissions mutation
   const updatePermissionsMutation = useMutation({
     mutationFn: async ({ userId, permissions }: { userId: string; permissions: string[] }) => {
-      return apiRequest(`/api/events/${eventId}/collaborators/${userId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ permissions }),
-      });
+      return apiRequest('PATCH', `/api/events/${eventId}/collaborators/${userId}`, { permissions });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/collaborators`] });
@@ -192,7 +184,7 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
 
   const getInitials = (user: any) => {
     const name = getUserDisplayName(user);
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
   };
 
   return (
@@ -322,7 +314,7 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
             </div>
           ) : (
             <div className="space-y-3">
-              {collaborators?.map((collab: Collaborator) => (
+              {(collaborators || []).map((collab: Collaborator) => (
                 <div
                   key={collab.id}
                   className="flex items-center justify-between p-3 border rounded-lg"

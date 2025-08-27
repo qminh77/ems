@@ -268,6 +268,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user access info for event
+  app.get("/api/events/:eventId/access", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const eventId = parseInt(req.params.eventId);
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const access = await storage.checkEventAccess(eventId, userId);
+      res.json(access);
+    } catch (error) {
+      console.error("Error checking event access:", error);
+      res.status(500).json({ message: "Failed to check access" });
+    }
+  });
+
   // Attendee routes
   app.get("/api/events/:eventId/attendees", isAuthenticated, checkEventAccess, async (req: any, res) => {
     try {
