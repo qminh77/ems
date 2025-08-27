@@ -1,28 +1,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: hsl(250, 50%, 98%);
-  --foreground: hsl(222, 25%, 7.8%);
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(222, 47%, 11%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(222, 25%, 7.8%);
+  --card-foreground: hsl(222, 47%, 11%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(222, 25%, 7.8%);
-  --primary: hsl(206, 100%, 41%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(142, 76%, 36%);
+  --popover-foreground: hsl(222, 47%, 11%);
+  --primary: hsl(221, 83%, 53%);
+  --primary-foreground: hsl(210, 40%, 98%);
+  --secondary: hsl(142, 72%, 29%);
   --secondary-foreground: hsl(0, 0%, 100%);
-  --muted: hsl(240, 1.96%, 90%);
-  --muted-foreground: hsl(222, 25%, 7.8%);
-  --accent: hsl(33, 100%, 47%);
+  --muted: hsl(240, 4.8%, 95.9%);
+  --muted-foreground: hsl(240, 3.8%, 46.1%);
+  --accent: hsl(24, 96%, 48%);
   --accent-foreground: hsl(0, 0%, 100%);
-  --destructive: hsl(356, 90%, 54%);
+  --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(214, 13%, 92%);
-  --input: hsl(200, 23%, 97%);
-  --ring: hsl(206, 100%, 41%);
+  --border: hsl(240, 5.9%, 90%);
+  --input: hsl(240, 5.9%, 90%);
+  --ring: hsl(221, 83%, 53%);
   --chart-1: hsl(206, 100%, 41%);
   --chart-2: hsl(142, 76%, 36%);
   --chart-3: hsl(33, 100%, 47%);
@@ -36,18 +37,18 @@
   --sidebar-accent-foreground: hsl(206, 100%, 41%);
   --sidebar-border: hsl(205, 25%, 91%);
   --sidebar-ring: hsl(206, 100%, 41%);
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', 'Inter', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
-  --radius: 0.75rem;
-  --shadow-2xs: 0px 2px 0px 0px hsl(206, 100%, 41% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(206, 100%, 41% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(206, 100%, 41% / 0.00), 0px 1px 2px -1px hsl(206, 100%, 41% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(206, 100%, 41% / 0.00), 0px 1px 2px -1px hsl(206, 100%, 41% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(206, 100%, 41% / 0.00), 0px 2px 4px -1px hsl(206, 100%, 41% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(206, 100%, 41% / 0.00), 0px 4px 6px -1px hsl(206, 100%, 41% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(206, 100%, 41% / 0.00), 0px 8px 10px -1px hsl(206, 100%, 41% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(206, 100%, 41% / 0.00);
+  --radius: 0.875rem;
+  --shadow-2xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-xs: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-2xl: 0 35px 60px -15px rgba(0, 0, 0, 0.3);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 }
@@ -109,6 +110,118 @@
 
 .animate-scan {
   animation: scan 2s linear infinite;
+}
+
+/* Custom animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+button, a, .card, .hover\:shadow-lg {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glassmorphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass {
+  background: rgba(20, 20, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Gradient backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, hsl(221, 83%, 63%) 100%);
+}
+
+.gradient-secondary {
+  background: linear-gradient(135deg, var(--secondary) 0%, hsl(142, 72%, 39%) 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, var(--accent) 0%, hsl(24, 96%, 58%) 100%);
+}
+
+/* Hover effects */
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Loading skeleton */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(240, 4.8%, 95.9%) 0%,
+    hsl(240, 4.8%, 90%) 50%,
+    hsl(240, 4.8%, 95.9%) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
 }
 
 /* Mobile safe area support */

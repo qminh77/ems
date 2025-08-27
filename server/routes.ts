@@ -511,20 +511,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         // Prepare data for Excel
-        const excelData = attendees.map((attendee, index) => ({
-          'STT': index + 1,
-          'Tên': attendee.name,
-          'MSSV/MSNV': attendee.studentId || '',
-          'Email': attendee.email || '',
-          'Khoa': attendee.faculty || '',
-          'Ngành': attendee.major || '',
-          'Mã QR': attendee.qrCode || '',
-          'File QR': attendee.qrCode ? `qr-codes/QR_${attendee.qrCode}.png` : '',
-          'Trạng thái': attendee.status === 'checked_in' ? 'Đã check-in' : 
-                        attendee.status === 'checked_out' ? 'Đã check-out' : 'Chờ check-in',
-          'Thời gian check-in': attendee.checkinTime ? new Date(attendee.checkinTime).toLocaleString('vi-VN') : '',
-          'Thời gian check-out': attendee.checkoutTime ? new Date(attendee.checkoutTime).toLocaleString('vi-VN') : ''
-        }));
+        const excelData = attendees.map((attendee, index) => {
+          const nameParts = attendee.name.split(' ');
+          const formattedName = nameParts.join('_');
+          return {
+            'STT': index + 1,
+            'Tên': attendee.name,
+            'MSSV/MSNV': attendee.studentId || '',
+            'Email': attendee.email || '',
+            'Khoa': attendee.faculty || '',
+            'Ngành': attendee.major || '',
+            'Mã QR': attendee.qrCode || '',
+            'File QR': attendee.qrCode ? `qr-codes/${formattedName}_${attendee.qrCode}.png` : '',
+            'Trạng thái': attendee.status === 'checked_in' ? 'Đã check-in' : 
+                          attendee.status === 'checked_out' ? 'Đã check-out' : 'Chờ check-in',
+            'Thời gian check-in': attendee.checkinTime ? new Date(attendee.checkinTime).toLocaleString('vi-VN') : '',
+            'Thời gian check-out': attendee.checkoutTime ? new Date(attendee.checkoutTime).toLocaleString('vi-VN') : ''
+          };
+        });
         
         // Create workbook and worksheet
         const ws = XLSX.utils.json_to_sheet(excelData);
@@ -560,7 +564,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Generate QR code images
         for (const attendee of attendees) {
           if (attendee.qrCode) {
-            const qrImagePath = path.join(qrDir, `QR_${attendee.qrCode}.png`);
+            // Format tên file: Họ_Tên_CK_XXXXX.png
+            const nameParts = attendee.name.split(' ');
+            const formattedName = nameParts.join('_');
+            const qrImagePath = path.join(qrDir, `${formattedName}_${attendee.qrCode}.png`);
             await QRCode.toFile(qrImagePath, attendee.qrCode);
           }
         }
