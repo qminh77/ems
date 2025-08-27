@@ -11,9 +11,9 @@ export function setupLocalAuth(app: Express) {
   passport.use(new LocalStrategy(
     async (username, password, done) => {
       try {
-        const auth = await storage.getLocalAuthByUsername(username);
+        const auth = await storage.getLocalAuthByEmailOrUsername(username);
         if (!auth) {
-          return done(null, false, { message: 'Tên đăng nhập không tồn tại' });
+          return done(null, false, { message: 'Email hoặc tên đăng nhập không tồn tại' });
         }
 
         const user = await storage.getUser(auth.userId);

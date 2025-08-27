@@ -67,7 +67,7 @@ export default function LoginPage() {
     } catch (error: any) {
       toast({
         title: "Đăng nhập thất bại",
-        description: error.message || "Tên đăng nhập hoặc mật khẩu không đúng",
+        description: error.message || "Email/tên đăng nhập hoặc mật khẩu không đúng",
         variant: "destructive"
       });
     } finally {
@@ -172,11 +172,11 @@ export default function LoginPage() {
             <TabsContent value="login" className="space-y-4">
               <form onSubmit={handleLocalLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="username">Tên đăng nhập</Label>
+                  <Label htmlFor="username">Email hoặc tên đăng nhập</Label>
                   <Input
                     id="username"
                     type="text"
-                    placeholder="Nhập tên đăng nhập"
+                    placeholder="Nhập email hoặc tên đăng nhập"
                     value={loginData.username}
                     onChange={(e) => setLoginData({...loginData, username: e.target.value})}
                     disabled={isLoading}

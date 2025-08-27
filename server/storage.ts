@@ -28,6 +28,7 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   createLocalAuth(auth: InsertLocalAuth): Promise<LocalAuth>;
   getLocalAuthByUsername(username: string): Promise<LocalAuth | undefined>;
+  getLocalAuthByEmailOrUsername(emailOrUsername: string): Promise<LocalAuth | undefined>;
   getLocalAuthByUserId(userId: string): Promise<LocalAuth | undefined>;
   
   // Event operations
@@ -125,6 +126,24 @@ export class DatabaseStorage implements IStorage {
   async getLocalAuthByUsername(username: string): Promise<LocalAuth | undefined> {
     const [auth] = await db.select().from(localAuth).where(eq(localAuth.username, username));
     return auth;
+  }
+
+  async getLocalAuthByEmailOrUsername(emailOrUsername: string): Promise<LocalAuth | undefined> {
+    // First, check if it's an email format
+    const isEmail = emailOrUsername.includes('@');
+    
+    if (isEmail) {
+      // Find user by email first
+      const user = await this.getUserByEmail(emailOrUsername);
+      if (!user) return undefined;
+      
+      // Then get the local auth for that user
+      const [auth] = await db.select().from(localAuth).where(eq(localAuth.userId, user.id));
+      return auth;
+    } else {
+      // Treat as username
+      return this.getLocalAuthByUsername(emailOrUsername);
+    }
   }
 
   async getLocalAuthByUserId(userId: string): Promise<LocalAuth | undefined> {
