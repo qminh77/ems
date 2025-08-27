@@ -52,16 +52,6 @@ export default function Students() {
     setSelectAll(false);
   }, [selectedEventId]);
 
-  // Update select all state when filtered attendees change
-  useEffect(() => {
-    if (filteredAttendees.length === 0) {
-      setSelectAll(false);
-    } else {
-      const allCurrentIds = filteredAttendees.map(s => s.id!);
-      const selectedCurrentIds = allCurrentIds.filter(id => selectedStudentIds.has(id));
-      setSelectAll(selectedCurrentIds.length === allCurrentIds.length);
-    }
-  }, [filteredAttendees, selectedStudentIds]);
 
   const deleteStudentMutation = useMutation({
     mutationFn: async (studentId: number) => {
@@ -140,6 +130,14 @@ export default function Students() {
     }
   };
 
+  const filteredAttendees = attendees.filter((attendee) =>
+    attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    attendee.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    attendee.studentId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    attendee.faculty?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    attendee.major?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const handleSelectStudent = (studentId: number, checked: boolean) => {
     const newSelected = new Set(selectedStudentIds);
     if (checked) {
@@ -163,6 +161,17 @@ export default function Students() {
       setSelectAll(false);
     }
   };
+
+  // Update select all state when filtered attendees change
+  useEffect(() => {
+    if (filteredAttendees.length === 0) {
+      setSelectAll(false);
+    } else {
+      const allCurrentIds = filteredAttendees.map(s => s.id!);
+      const selectedCurrentIds = allCurrentIds.filter(id => selectedStudentIds.has(id));
+      setSelectAll(selectedCurrentIds.length === allCurrentIds.length);
+    }
+  }, [filteredAttendees, selectedStudentIds]);
 
   const handleShowQR = (student: Attendee) => {
     setSelectedStudent(student);
@@ -241,14 +250,6 @@ export default function Students() {
         return 'Chờ check-in';
     }
   };
-
-  const filteredAttendees = attendees.filter((attendee) =>
-    attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attendee.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attendee.studentId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attendee.faculty?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attendee.major?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const selectedEvent = events.find((e) => e.id?.toString() === selectedEventId);
 
