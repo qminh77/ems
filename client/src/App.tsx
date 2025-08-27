@@ -17,26 +17,8 @@ import { useState, useEffect } from "react";
 
 function Router() {
   const { isAuthenticated, isLoading, error } = useAuth();
-
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Đang tải...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If not authenticated, show login page
-  // Check both error and authentication status
-  if (!isAuthenticated) {
-    return <LoginPage />;
-  }
-
-  // Check sidebar collapse state
+  
+  // All hooks must be called before any conditional returns
   const [isCollapsed, setIsCollapsed] = useState(false);
   
   useEffect(() => {
@@ -59,6 +41,24 @@ function Router() {
       clearInterval(interval);
     };
   }, []);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, show login page
+  // Check both error and authentication status
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   // If authenticated, show main app
   return (
