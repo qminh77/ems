@@ -305,6 +305,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk delete attendees
+  app.delete("/api/attendees/bulk", isAuthenticated, async (req: any, res) => {
+    try {
+      const { attendeeIds } = req.body;
+      const userId = req.user?.claims?.sub;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+
+      if (!attendeeIds || !Array.isArray(attendeeIds) || attendeeIds.length === 0) {
+        return res.status(400).json({ message: "Danh sách ID sinh viên không hợp lệ" });
+      }
+
+      // Verify user owns all attendees by checking their events
+      const attendeesToDelete = await Promise.all(
+        attendeeIds.map(async (id: number) => {
+          const attendee = await storage.getAttendeeById(id);
+          if (!attendee) return null;
+          
+          const event = await storage.getEventById(attendee.eventId);
+          if (!event || event.userId !== userId) {
+            return null;
+          }
+          
+          return attendee;
+        })
+      );
+
+      const validAttendees = attendeesToDelete.filter(Boolean);
+      const validIds = validAttendees.map(a => a!.id);
+
+      if (validIds.length === 0) {
+        return res.status(403).json({ message: "Bạn không có quyền xóa những sinh viên này" });
+      }
+
+      // Delete QR files first
+      for (const attendee of validAttendees) {
+        if (attendee?.qrPath) {
+          const fullPath = path.join(process.cwd(), attendee.qrPath);
+          if (fs.existsSync(fullPath)) {
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (error) {
+              console.error(`Failed to delete QR file for attendee ${attendee.id}:`, error);
+            }
+          }
+        }
+      }
+
+      const result = await storage.deleteMultipleAttendees(validIds);
+      
+      // Invalidate cache
+      cacheManager.invalidate(`stats:${userId}`);
+      
+      res.json({
+        message: `Đã xóa thành công ${result.deletedCount}/${attendeeIds.length} sinh viên`,
+        deletedCount: result.deletedCount,
+        totalRequested: attendeeIds.length,
+        errors: result.errors
+      });
+    } catch (error) {
+      console.error("Error bulk deleting attendees:", error);
+      res.status(500).json({ message: "Lỗi khi xóa sinh viên" });
+    }
+  });
+
   // Check-in routes
   app.post("/api/checkin", isAuthenticated, async (req: any, res) => {
     try {

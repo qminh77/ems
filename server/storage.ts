@@ -44,6 +44,7 @@ export interface IStorage {
   createAttendee(attendee: InsertAttendee): Promise<Attendee>;
   updateAttendee(id: number, attendee: Partial<Attendee>): Promise<Attendee | undefined>;
   deleteAttendee(id: number): Promise<boolean>;
+  deleteMultipleAttendees(ids: number[]): Promise<{ deletedCount: number; errors: string[] }>;
   
   // Check-in operations
   createCheckinLog(log: InsertCheckinLog): Promise<CheckinLog>;
@@ -183,6 +184,30 @@ export class DatabaseStorage implements IStorage {
   async deleteAttendee(id: number): Promise<boolean> {
     const result = await db.delete(attendees).where(eq(attendees.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  async deleteMultipleAttendees(ids: number[]): Promise<{ deletedCount: number; errors: string[] }> {
+    if (ids.length === 0) {
+      return { deletedCount: 0, errors: [] };
+    }
+
+    const errors: string[] = [];
+    let deletedCount = 0;
+
+    for (const id of ids) {
+      try {
+        const deleted = await this.deleteAttendee(id);
+        if (deleted) {
+          deletedCount++;
+        } else {
+          errors.push(`Sinh viên với ID ${id} không tồn tại`);
+        }
+      } catch (error) {
+        errors.push(`Lỗi khi xóa sinh viên ID ${id}: ${error}`);
+      }
+    }
+
+    return { deletedCount, errors };
   }
 
   async createCheckinLog(log: InsertCheckinLog): Promise<CheckinLog> {

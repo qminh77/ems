@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import StudentFormModal from "@/components/student-form-modal";
 import QRCodeModal from "@/components/qr-code-modal";
-import { Upload, Download, FileSpreadsheet, Users, QrCode, Archive, Pencil, Trash2 } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, Users, QrCode, Archive, Pencil, Trash2, UserX } from "lucide-react";
 import type { Event, Attendee } from "@shared/schema";
 
 export default function Students() {
@@ -20,6 +21,8 @@ export default function Students() {
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<number>>(new Set());
+  const [selectAll, setSelectAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -43,6 +46,23 @@ export default function Students() {
     }
   }, [events, selectedEventId]);
 
+  // Reset selection when event changes
+  useEffect(() => {
+    setSelectedStudentIds(new Set());
+    setSelectAll(false);
+  }, [selectedEventId]);
+
+  // Update select all state when filtered attendees change
+  useEffect(() => {
+    if (filteredAttendees.length === 0) {
+      setSelectAll(false);
+    } else {
+      const allCurrentIds = filteredAttendees.map(s => s.id!);
+      const selectedCurrentIds = allCurrentIds.filter(id => selectedStudentIds.has(id));
+      setSelectAll(selectedCurrentIds.length === allCurrentIds.length);
+    }
+  }, [filteredAttendees, selectedStudentIds]);
+
   const deleteStudentMutation = useMutation({
     mutationFn: async (studentId: number) => {
       await apiRequest("DELETE", `/api/attendees/${studentId}`);
@@ -64,6 +84,37 @@ export default function Students() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (attendeeIds: number[]) => {
+      const response = await apiRequest("DELETE", "/api/attendees/bulk", {
+        attendeeIds
+      });
+      return response.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "attendees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setSelectedStudentIds(new Set());
+      setSelectAll(false);
+      
+      toast({
+        title: "Thành công",
+        description: result.message,
+      });
+      
+      if (result.errors && result.errors.length > 0) {
+        console.warn("Some deletions failed:", result.errors);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa sinh viên đã chọn",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleAddStudent = () => {
     setEditingStudent(null);
     setIsStudentModalOpen(true);
@@ -77,6 +128,39 @@ export default function Students() {
   const handleDeleteStudent = async (studentId: number) => {
     if (confirm("Bạn có chắc chắn muốn xóa sinh viên này?")) {
       deleteStudentMutation.mutate(studentId);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedStudentIds.size === 0) return;
+    
+    const count = selectedStudentIds.size;
+    if (confirm(`Bạn có chắc chắn muốn xóa ${count} sinh viên đã chọn?`)) {
+      bulkDeleteMutation.mutate(Array.from(selectedStudentIds));
+    }
+  };
+
+  const handleSelectStudent = (studentId: number, checked: boolean) => {
+    const newSelected = new Set(selectedStudentIds);
+    if (checked) {
+      newSelected.add(studentId);
+    } else {
+      newSelected.delete(studentId);
+    }
+    setSelectedStudentIds(newSelected);
+    
+    // Update select all state
+    setSelectAll(newSelected.size === filteredAttendees.length && filteredAttendees.length > 0);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(filteredAttendees.map(s => s.id!));
+      setSelectedStudentIds(allIds);
+      setSelectAll(true);
+    } else {
+      setSelectedStudentIds(new Set());
+      setSelectAll(false);
     }
   };
 
@@ -287,6 +371,24 @@ export default function Students() {
                     Sự kiện: {selectedEvent.name}
                   </p>
                 )}
+                {selectedStudentIds.size > 0 && (
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="text-sm text-blue-600 font-medium">
+                      Đã chọn {selectedStudentIds.size} sinh viên
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={handleBulkDelete}
+                      disabled={bulkDeleteMutation.isPending}
+                      className="flex items-center gap-2"
+                      data-testid="button-bulk-delete"
+                    >
+                      <UserX className="h-4 w-4" />
+                      {bulkDeleteMutation.isPending ? "Đang xóa..." : `Xóa đã chọn (${selectedStudentIds.size})`}
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="flex items-center space-x-4">
                 <div className="relative">
@@ -327,7 +429,15 @@ export default function Students() {
                   <thead className="bg-gray-100 border-b border-gray-200">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tên
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={selectAll}
+                            onCheckedChange={handleSelectAll}
+                            disabled={filteredAttendees.length === 0}
+                            data-testid="checkbox-select-all"
+                          />
+                          <span>Tên</span>
+                        </div>
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         MSSV/MSNV
@@ -350,22 +460,35 @@ export default function Students() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredAttendees.map((student, index) => (
-                      <tr key={student.id} className="hover:bg-gray-50" data-testid={`student-row-${index}`}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                              <span className="text-primary font-medium text-sm" data-testid={`student-initials-${index}`}>
-                                {student.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-                              </span>
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900" data-testid={`student-name-${index}`}>
-                                {student.name}
+                    {filteredAttendees.map((student, index) => {
+                      const isSelected = selectedStudentIds.has(student.id!);
+                      return (
+                        <tr 
+                          key={student.id} 
+                          className={`hover:bg-gray-50 transition-colors ${
+                            isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                          }`} 
+                          data-testid={`student-row-${index}`}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={(checked) => handleSelectStudent(student.id!, checked as boolean)}
+                                data-testid={`checkbox-student-${index}`}
+                              />
+                              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                <span className="text-primary font-medium text-sm" data-testid={`student-initials-${index}`}>
+                                  {student.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="ml-1">
+                                <div className="text-sm font-medium text-gray-900" data-testid={`student-name-${index}`}>
+                                  {student.name}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`student-id-${index}`}>
                           {student.studentId || "—"}
                         </td>
@@ -417,8 +540,9 @@ export default function Students() {
                             </Button>
                           </div>
                         </td>
-                      </tr>
-                    ))}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
