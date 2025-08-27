@@ -298,7 +298,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/events/:eventId/attendees", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/attendees", isAuthenticated, checkEventAccess, async (req: any, res) => {
+    // Check if user has permission to manage attendees
+    if (req.eventAccess.role !== 'owner' && !req.eventAccess.permissions?.includes('manage_attendees')) {
+      return res.status(403).json({ message: "Bạn không có quyền thêm sinh viên" });
+    }
     try {
       const eventId = parseInt(req.params.eventId);
       
@@ -335,12 +339,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(attendeeId)) {
         return res.status(400).json({ message: "ID sinh viên không hợp lệ" });
       }
-      const attendeeData = insertAttendeeSchema.partial().parse(req.body);
-      const attendee = await storage.updateAttendee(attendeeId, attendeeData);
+      
+      // Get attendee to find eventId
+      const attendee = await storage.getAttendeeById(attendeeId);
       if (!attendee) {
+        return res.status(404).json({ message: "Không tìm thấy sinh viên" });
+      }
+      
+      // Check access
+      const userId = req.user?.claims?.sub;
+      const access = await storage.checkEventAccess(attendee.eventId, userId);
+      if (!access.hasAccess || (access.role !== 'owner' && !access.permissions?.includes('manage_attendees'))) {
+        return res.status(403).json({ message: "Bạn không có quyền chỉnh sửa sinh viên" });
+      }
+      const attendeeData = insertAttendeeSchema.partial().parse(req.body);
+      const updatedAttendee = await storage.updateAttendee(attendeeId, attendeeData);
+      if (!updatedAttendee) {
         return res.status(404).json({ message: "Attendee not found" });
       }
-      res.json(attendee);
+      res.json(updatedAttendee);
     } catch (error) {
       console.error("Error updating attendee:", error);
       res.status(400).json({ message: "Failed to update attendee" });
@@ -354,8 +371,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "ID sinh viên không hợp lệ" });
       }
       
-      // Get attendee to delete QR file
+      // Get attendee to find eventId
       const attendee = await storage.getAttendeeById(attendeeId);
+      if (!attendee) {
+        return res.status(404).json({ message: "Không tìm thấy sinh viên" });
+      }
+      
+      // Check access
+      const userId = req.user?.claims?.sub;
+      const access = await storage.checkEventAccess(attendee.eventId, userId);
+      if (!access.hasAccess || (access.role !== 'owner' && !access.permissions?.includes('manage_attendees'))) {
+        return res.status(403).json({ message: "Bạn không có quyền xóa sinh viên" });
+      }
+      
+      // Use existing attendee data for QR file deletion
       if (attendee?.qrPath) {
         const fullPath = path.join(process.cwd(), attendee.qrPath);
         if (fs.existsSync(fullPath)) {
@@ -463,8 +492,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { attendee, event } = result;
       
-      // CRITICAL SECURITY CHECK: Verify user owns this event
-      if (event.userId !== userId) {
+      // CRITICAL SECURITY CHECK: Verify user has access to this event
+      const access = await storage.checkEventAccess(event.id, userId);
+      if (!access.hasAccess || (access.role !== 'owner' && !access.permissions?.includes('checkin'))) {
         return res.status(403).json({ message: "Bạn không có quyền check-in cho sự kiện này" });
       }
       
@@ -562,6 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const limit = parseInt(req.query.limit as string) || 10;
+      // Get recent checkins from events where user is owner or collaborator
       const recentCheckins = await storage.getRecentCheckinsByUserId(userId, limit);
       res.json(recentCheckins);
     } catch (error) {
@@ -821,7 +852,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk import attendees
-  app.post('/api/events/:eventId/attendees/bulk', isAuthenticated, upload.single('file'), async (req: any, res) => {
+  app.post('/api/events/:eventId/attendees/bulk', isAuthenticated, checkEventAccess, upload.single('file'), async (req: any, res) => {
+    // Check if user has permission to manage attendees
+    if (req.eventAccess.role !== 'owner' && !req.eventAccess.permissions?.includes('manage_attendees')) {
+      return res.status(403).json({ message: "Bạn không có quyền import sinh viên" });
+    }
+    
     const eventId = parseInt(req.params.eventId);
     const file = req.file;
     const userId = req.user?.claims?.sub;
