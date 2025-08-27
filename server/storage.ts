@@ -19,6 +19,8 @@ import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
+  // Optimized operations
+  getAttendeeWithEvent(qrCode: string): Promise<{ attendee: Attendee; event: Event } | undefined>;
   // User operations (required for Auth)
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -58,6 +60,21 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Optimized method to get attendee with event in single query
+  async getAttendeeWithEvent(qrCode: string): Promise<{ attendee: Attendee; event: Event } | undefined> {
+    const result = await db
+      .select({
+        attendee: attendees,
+        event: events,
+      })
+      .from(attendees)
+      .innerJoin(events, eq(attendees.eventId, events.id))
+      .where(eq(attendees.qrCode, qrCode))
+      .limit(1);
+    
+    return result[0];
+  }
+
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;

@@ -38,8 +38,7 @@ export function useWebSocket() {
         setIsConnected(true);
         reconnectAttempts.current = 0;
         
-        // Send initial ping
-        ws.current?.send(JSON.stringify({ type: 'ping' }));
+        // Don't send initial ping immediately to reduce server load
       };
 
       ws.current.onmessage = (event) => {
@@ -142,12 +141,12 @@ export function useWebSocket() {
       connect();
     }
 
-    // Ping interval to keep connection alive
+    // Ping interval to keep connection alive (increased interval)
     const pingInterval = setInterval(() => {
       if (ws.current?.readyState === WebSocket.OPEN) {
         sendMessage({ type: 'ping' });
       }
-    }, 30000); // Ping every 30 seconds
+    }, 60000); // Ping every 60 seconds to reduce overhead
 
     // Page visibility change handler
     const handleVisibilityChange = () => {

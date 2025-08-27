@@ -16,6 +16,7 @@ import { Readable } from 'stream';
 import { z } from "zod";
 import archiver from 'archiver';
 import { wsManager } from './websocket';
+import { cacheManager } from './cacheManager';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -66,15 +67,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dashboard stats
+  // Dashboard stats with caching
   app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
-      // Support both Replit auth and local auth
       const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
+      
+      // Check cache first
+      const cacheKey = `stats:${userId}`;
+      const cachedStats = cacheManager.get(cacheKey);
+      
+      if (cachedStats) {
+        return res.json(cachedStats);
+      }
+      
+      // If not cached, fetch from database
       const stats = await storage.getDashboardStats(userId);
+      
+      // Cache for 5 seconds
+      cacheManager.set(cacheKey, stats, 5000);
+      
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -305,15 +319,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QR code is required" });
       }
       
-      const attendee = await storage.getAttendeeByQrCode(qrCode);
-      if (!attendee) {
+      // Get attendee and event in single optimized query
+      const result = await storage.getAttendeeWithEvent(qrCode);
+      if (!result) {
         return res.status(404).json({ message: "Invalid QR code or attendee not found" });
       }
       
-      const event = await storage.getEventById(attendee.eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
+      const { attendee, event } = result;
       
       // CRITICAL SECURITY CHECK: Verify user owns this event
       if (event.userId !== userId) {
@@ -346,14 +358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "This attendee has already checked out" });
       }
       
-      // Log the action
-      const checkinLog = await storage.createCheckinLog({
-        attendeeId: attendee.id,
-        action,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent') || '',
-      });
-      
+      // Prepare response data first
       const responseData = {
         success: true,
         action,
@@ -365,31 +370,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         event,
       };
       
-      // Broadcast check-in update to all connected clients
-      wsManager.broadcastCheckinUpdate(userId, {
-        ...checkinLog,
-        attendee: {
-          ...attendee,
-          status: newStatus,
-        },
-        event,
-        action,
-        timestamp: new Date(),
-      });
-      
-      // Broadcast updated stats
-      const stats = await storage.getDashboardStats(userId);
-      wsManager.broadcastStatsUpdate(userId, stats);
-      
-      // Broadcast attendee update for the event
-      wsManager.broadcastAttendeeUpdate(userId, attendee.eventId, {
-        ...attendee,
-        status: newStatus,
-        checkinTime: action === 'check_in' ? new Date() : attendee.checkinTime,
-        checkoutTime: action === 'check_out' ? new Date() : attendee.checkoutTime,
-      });
-      
+      // Send response immediately to reduce latency
       res.json(responseData);
+      
+      // Process logging and broadcasts asynchronously after response
+      setImmediate(async () => {
+        try {
+          // Create checkin log and get stats in parallel
+          const [checkinLog, stats] = await Promise.all([
+            storage.createCheckinLog({
+              attendeeId: attendee.id,
+              action,
+              ipAddress: req.ip,
+              userAgent: req.get('User-Agent') || '',
+            }),
+            storage.getDashboardStats(userId)
+          ]);
+          
+          // Broadcast all updates at once
+          const broadcastData = {
+            ...checkinLog,
+            attendee: {
+              ...attendee,
+              status: newStatus,
+              checkinTime: action === 'check_in' ? new Date() : attendee.checkinTime,
+              checkoutTime: action === 'check_out' ? new Date() : attendee.checkoutTime,
+            },
+            event,
+            action,
+            timestamp: new Date(),
+          };
+          
+          // Invalidate cache for this user
+          cacheManager.invalidate(`stats:${userId}`);
+          
+          // Send all broadcasts
+          wsManager.broadcastCheckinUpdate(userId, broadcastData);
+          wsManager.broadcastStatsUpdate(userId, stats);
+          wsManager.broadcastAttendeeUpdate(userId, attendee.eventId, broadcastData.attendee);
+        } catch (error) {
+          console.error('Error in async checkin processing:', error);
+        }
+      });
     } catch (error) {
       console.error("Error processing check-in:", error);
       res.status(500).json({ message: "Failed to process check-in" });
