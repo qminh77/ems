@@ -314,7 +314,7 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
             </div>
           ) : (
             <div className="space-y-3">
-              {(collaborators || []).map((collab: Collaborator) => (
+              {Array.isArray(collaborators) && collaborators.map((collab: Collaborator) => (
                 <div
                   key={collab.id}
                   className="flex items-center justify-between p-3 border rounded-lg"

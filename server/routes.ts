@@ -332,6 +332,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/attendees/:id", isAuthenticated, async (req: any, res) => {
     try {
       const attendeeId = parseInt(req.params.id);
+      if (isNaN(attendeeId)) {
+        return res.status(400).json({ message: "ID sinh viên không hợp lệ" });
+      }
       const attendeeData = insertAttendeeSchema.partial().parse(req.body);
       const attendee = await storage.updateAttendee(attendeeId, attendeeData);
       if (!attendee) {
@@ -347,6 +350,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/attendees/:id", isAuthenticated, async (req: any, res) => {
     try {
       const attendeeId = parseInt(req.params.id);
+      if (isNaN(attendeeId)) {
+        return res.status(400).json({ message: "ID sinh viên không hợp lệ" });
+      }
       
       // Get attendee to delete QR file
       const attendee = await storage.getAttendeeById(attendeeId);

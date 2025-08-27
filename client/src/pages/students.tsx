@@ -382,7 +382,7 @@ export default function Students() {
             <TabsTrigger value="collaborators" className="flex items-center gap-2">
               <UsersIcon className="h-4 w-4" />
               Cộng tác viên
-              {eventAccess && 'role' in eventAccess && eventAccess.role === 'owner' && <Shield className="h-4 w-4 ml-1" />}
+              {eventAccess && (eventAccess as any)?.role === 'owner' && <Shield className="h-4 w-4 ml-1" />}
             </TabsTrigger>
           </TabsList>
 
@@ -557,7 +557,7 @@ export default function Students() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleDeleteStudent(student.id!)}
+                              onClick={() => student.id && handleDeleteStudent(student.id)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               title="Xóa"
                               data-testid={`button-delete-student-${index}`}
@@ -578,7 +578,7 @@ export default function Students() {
       </TabsContent>
 
       <TabsContent value="collaborators">
-        <CollaboratorsManager eventId={Number(selectedEventId)} userRole={(eventAccess && 'role' in eventAccess) ? eventAccess.role || '' : ''} />
+        <CollaboratorsManager eventId={Number(selectedEventId)} userRole={(eventAccess as any)?.role || ''} />
       </TabsContent>
     </Tabs>
   )}
