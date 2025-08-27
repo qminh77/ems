@@ -13,6 +13,7 @@ import NotFound from "@/pages/not-found";
 import Sidebar from "@/components/sidebar";
 import Navbar from "@/components/navbar";
 import MobileNavigation from "@/components/mobile-navigation";
+import { useState, useEffect } from "react";
 
 function Router() {
   const { isAuthenticated, isLoading, error } = useAuth();
@@ -35,12 +36,38 @@ function Router() {
     return <LoginPage />;
   }
 
+  // Check sidebar collapse state
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const saved = localStorage.getItem('sidebar-collapsed');
+      if (saved !== null) {
+        setIsCollapsed(JSON.parse(saved));
+      }
+    };
+    
+    // Initial load
+    handleStorageChange();
+    
+    // Listen for changes
+    window.addEventListener('storage', handleStorageChange);
+    const interval = setInterval(handleStorageChange, 100); // Poll for changes in same tab
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
   // If authenticated, show main app
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
       <Navbar />
-      <div className="lg:ml-64 pt-16 lg:pt-0 pb-20 lg:pb-0">
+      <div className={`transition-all duration-300 pt-16 lg:pt-0 pb-20 lg:pb-0 ${
+        isCollapsed ? 'lg:ml-20' : 'lg:ml-72'
+      }`}>
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/events" component={Events} />
