@@ -417,14 +417,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Danh sách ID sinh viên không hợp lệ" });
       }
 
-      // Verify user owns all attendees by checking their events
+      // Verify user has access to all attendees by checking their events
       const attendeesToDelete = await Promise.all(
         attendeeIds.map(async (id: number) => {
           const attendee = await storage.getAttendeeById(id);
           if (!attendee) return null;
           
-          const event = await storage.getEventById(attendee.eventId);
-          if (!event || event.userId !== userId) {
+          const access = await storage.checkEventAccess(attendee.eventId, userId);
+          if (!access.hasAccess || (access.role !== 'owner' && !access.permissions?.includes('manage_attendees'))) {
             return null;
           }
           
