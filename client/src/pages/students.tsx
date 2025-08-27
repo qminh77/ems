@@ -184,7 +184,6 @@ export default function Students() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Quản lý sinh viên</h1>
-          <p className="text-gray-600 mt-2">Quản lý thông tin sinh viên tham gia sự kiện</p>
         </div>
         <div className="flex items-center space-x-4">
           <Select value={selectedEventId} onValueChange={setSelectedEventId}>
