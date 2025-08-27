@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { LogOut, Menu, X, ChevronLeft, ChevronRight, BarChart3, Calendar, Users, QrCode } from "lucide-react";
 import type { User } from "@shared/schema";
 
 export default function Sidebar() {
@@ -25,10 +25,10 @@ export default function Sidebar() {
   }, [isCollapsed]);
 
   const navigation = [
-    { name: "Tổng quan", href: "/", page: "/" },
-    { name: "Quản lý sự kiện", href: "/events", page: "/events" },
-    { name: "Quản lý sinh viên", href: "/students", page: "/students" },
-    { name: "Check-in/out", href: "/checkin", page: "/checkin" },
+    { name: "Tổng quan", href: "/", page: "/", icon: BarChart3 },
+    { name: "Quản lý sự kiện", href: "/events", page: "/events", icon: Calendar },
+    { name: "Quản lý sinh viên", href: "/students", page: "/students", icon: Users },
+    { name: "Check-in/out", href: "/checkin", page: "/checkin", icon: QrCode },
   ];
 
   const handleLogout = () => {
@@ -119,11 +119,15 @@ export default function Sidebar() {
                 data-testid={`nav-${item.page.replace('/', '') || 'dashboard'}`}
                 title={isCollapsed ? item.name : ''}
               >
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                  isActive(item.page) ? 'bg-white/20' : 'bg-gray-100'
+                }`}>
+                  <item.icon className={`h-5 w-5 ${
+                    isActive(item.page) ? 'text-white' : 'text-gray-600'
+                  }`} />
+                </div>
                 {!isCollapsed && (
                   <span className="font-semibold">{item.name}</span>
-                )}
-                {isCollapsed && (
-                  <span className="font-semibold text-xs">{item.name.split(' ')[0].substring(0, 3)}</span>
                 )}
               </button>
             ))}
