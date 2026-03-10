@@ -39,23 +39,6 @@ export default function Dashboard() {
     refetchInterval: isConnected ? false : 10000,
   });
 
-  if (statsLoading) {
-    return (
-      <div className="page-shell" data-testid="dashboard-loading">
-        <div className="rounded-xl border bg-card p-6">
-          <div className="mb-5 h-8 w-1/3 animate-pulse rounded-md bg-muted" />
-          <div className="h-4 w-1/2 animate-pulse rounded-md bg-muted" />
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-36 animate-pulse rounded-xl bg-muted" />
-          ))}
-        </div>
-        <div className="h-72 animate-pulse rounded-xl bg-muted" />
-      </div>
-    );
-  }
-
   const recentEvents = events?.slice(0, 4) || [];
   const checkinChartData = useMemo(() => {
     const buckets = Array.from({ length: 6 }).map((_, i) => {
@@ -85,6 +68,23 @@ export default function Dashboard() {
       color: "hsl(var(--chart-1))",
     },
   } satisfies ChartConfig;
+
+  if (statsLoading) {
+    return (
+      <div className="page-shell" data-testid="dashboard-loading">
+        <div className="rounded-xl border bg-card p-6">
+          <div className="mb-5 h-8 w-1/3 animate-pulse rounded-md bg-muted" />
+          <div className="h-4 w-1/2 animate-pulse rounded-md bg-muted" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-36 animate-pulse rounded-xl bg-muted" />
+          ))}
+        </div>
+        <div className="h-72 animate-pulse rounded-xl bg-muted" />
+      </div>
+    );
+  }
 
   return (
     <div className="page-shell" data-testid="page-dashboard">

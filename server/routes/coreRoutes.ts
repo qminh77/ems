@@ -52,7 +52,7 @@ export function registerCoreRoutes(app: Express) {
 
   app.get("/api/ws-token", isAuthenticated, async (req: any, res) => {
     if (process.env.VERCEL) {
-      return res.status(503).json({ message: "WebSocket is disabled in this environment" });
+      return res.json({ unsupported: true });
     }
 
     const userId = req.user?.claims?.sub;

@@ -77,7 +77,7 @@ function handleMessage(message: WebSocketMessage) {
   notify();
 }
 
-async function getConnectionToken(): Promise<string> {
+async function getConnectionToken(): Promise<string | null> {
   const response = await fetch('/api/ws-token', {
     credentials: 'include',
   });
@@ -93,6 +93,10 @@ async function getConnectionToken(): Promise<string> {
   }
 
   const payload = await response.json();
+  if (payload?.unsupported) {
+    return null;
+  }
+
   return payload.token;
 }
 
@@ -128,6 +132,13 @@ async function connect(userId: string) {
   sharedState.connectPromise = (async () => {
     try {
       const token = await getConnectionToken();
+      if (!token) {
+        sharedState.wsUnsupported = true;
+        sharedState.isConnected = false;
+        notify();
+        return;
+      }
+
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host;
       const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`;
