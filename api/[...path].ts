@@ -1,6 +1,9 @@
 import express from "express";
-import { registerRoutes } from "../server/routes.js";
-import { setSecurityHeaders } from "../server/requestGuards.js";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const { registerRoutes } = require("../server/routes");
+const { setSecurityHeaders } = require("../server/requestGuards");
 
 let appPromise: Promise<express.Express> | null = null;
 
