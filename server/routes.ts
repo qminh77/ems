@@ -10,6 +10,7 @@ import { registerAttendeeRoutes } from "./routes/attendeeRoutes";
 import { registerCheckinRoutes } from "./routes/checkinRoutes";
 import { registerCollaboratorRoutes } from "./routes/collaboratorRoutes";
 import { registerAdminRoutes } from "./routes/adminRoutes";
+import { ensureAdminCpSchema } from "./dbBootstrap";
 
 interface RegisterRoutesOptions {
   createHttpServer?: boolean;
@@ -20,6 +21,12 @@ export async function registerRoutes(
   options: RegisterRoutesOptions = {}
 ): Promise<Server | null> {
   const { createHttpServer = true } = options;
+
+  try {
+    await ensureAdminCpSchema();
+  } catch (error) {
+    console.error("Failed to ensure AdminCP schema:", error);
+  }
 
   await setupAuth(app);
   setupLocalAuth(app);
