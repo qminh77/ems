@@ -1,11 +1,11 @@
 import type { Express } from "express";
 import { z } from "zod";
-import { insertEventSchema } from "@shared/schema";
-import { storage } from "../storage";
-import { isAuthenticated } from "../auth";
-import { checkEventAccess } from "../middleware/eventAccess";
-import { canEditEvent, isEventOwner } from "../services/accessControl";
-import { cacheManager } from "../cacheManager";
+import { insertEventSchema } from "../../shared/schema.js";
+import { storage } from "../storage.js";
+import { isAuthenticated } from "../auth.js";
+import { checkEventAccess } from "../middleware/eventAccess.js";
+import { canEditEvent, isEventOwner } from "../services/accessControl.js";
+import { cacheManager } from "../cacheManager.js";
 
 export function registerEventRoutes(app: Express) {
   app.get("/api/events", isAuthenticated, async (req: any, res) => {

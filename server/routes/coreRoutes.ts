@@ -1,8 +1,8 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../auth";
-import { storage } from "../storage";
-import { wsManager } from "../websocket";
-import { cacheManager } from "../cacheManager";
+import { isAuthenticated } from "../auth.js";
+import { storage } from "../storage.js";
+import { wsManager } from "../websocket.js";
+import { cacheManager } from "../cacheManager.js";
 
 export function registerCoreRoutes(app: Express) {
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {

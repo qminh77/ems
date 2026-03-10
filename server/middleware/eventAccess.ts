@@ -1,4 +1,4 @@
-import { storage } from "../storage";
+import { storage } from "../storage.js";
 
 export async function checkEventAccess(req: any, res: any, next: any) {
   try {

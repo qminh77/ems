@@ -1,8 +1,8 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../auth";
-import { checkEventAccess } from "../middleware/eventAccess";
-import { storage } from "../storage";
-import { isEventOwner } from "../services/accessControl";
+import { isAuthenticated } from "../auth.js";
+import { checkEventAccess } from "../middleware/eventAccess.js";
+import { storage } from "../storage.js";
+import { isEventOwner } from "../services/accessControl.js";
 
 const allowedPermissions = new Set(["view", "checkin", "manage_attendees", "edit_event"]);
 

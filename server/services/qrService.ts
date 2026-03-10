@@ -1,4 +1,4 @@
-import { storage } from "../storage";
+import { storage } from "../storage.js";
 
 function generateUniqueQRCode(): string {
   const randomNumber = Math.floor(Math.random() * 10_000_000_000)

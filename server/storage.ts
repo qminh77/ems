@@ -21,8 +21,8 @@ import {
   type SystemSettings,
   type UpdateSystemSettings,
   type UpdateUserAdmin,
-} from "@shared/schema";
-import { db } from "./db";
+} from "../shared/schema.js";
+import { db } from "./db.js";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {

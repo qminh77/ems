@@ -1,10 +1,10 @@
 import type { Express } from "express";
 import { z } from "zod";
-import { updateSystemSettingsSchema, updateUserAdminSchema } from "@shared/schema";
-import { isAuthenticated } from "../auth";
-import { requireAdmin } from "../middleware/adminAccess";
-import { storage } from "../storage";
-import { cacheManager } from "../cacheManager";
+import { updateSystemSettingsSchema, updateUserAdminSchema } from "../../shared/schema.js";
+import { isAuthenticated } from "../auth.js";
+import { requireAdmin } from "../middleware/adminAccess.js";
+import { storage } from "../storage.js";
+import { cacheManager } from "../cacheManager.js";
 
 const userUpdatePayloadSchema = updateUserAdminSchema.refine(
   (data) => data.isAdmin !== undefined || data.canCreateEvents !== undefined || data.isActive !== undefined,

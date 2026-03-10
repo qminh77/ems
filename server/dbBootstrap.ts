@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db } from "./db";
+import { db } from "./db.js";
 
 export async function ensureAdminCpSchema() {
   await db.execute(sql`

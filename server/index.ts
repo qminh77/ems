@@ -1,9 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { wsManager } from "./websocket";
-import { setSecurityHeaders } from "./requestGuards";
-import { ensureDatabaseIndexes } from "./dbIndexes";
+import { registerRoutes } from "./routes.js";
+import { setupVite, serveStatic, log } from "./vite.js";
+import { wsManager } from "./websocket.js";
+import { setSecurityHeaders } from "./requestGuards.js";
+import { ensureDatabaseIndexes } from "./dbIndexes.js";
 
 const app = express();
 app.use(express.json());

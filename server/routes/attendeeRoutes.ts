@@ -8,13 +8,13 @@ import * as XLSX from "xlsx";
 import QRCode from "qrcode";
 import archiver from "archiver";
 import { Readable } from "stream";
-import { insertAttendeeSchema } from "@shared/schema";
-import { storage } from "../storage";
-import { isAuthenticated } from "../auth";
-import { checkEventAccess } from "../middleware/eventAccess";
-import { ensureUniqueQRCode } from "../services/qrService";
-import { canManageAttendees } from "../services/accessControl";
-import { cacheManager } from "../cacheManager";
+import { insertAttendeeSchema } from "../../shared/schema.js";
+import { storage } from "../storage.js";
+import { isAuthenticated } from "../auth.js";
+import { checkEventAccess } from "../middleware/eventAccess.js";
+import { ensureUniqueQRCode } from "../services/qrService.js";
+import { canManageAttendees } from "../services/accessControl.js";
+import { cacheManager } from "../cacheManager.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),

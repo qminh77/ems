@@ -1,10 +1,10 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../auth";
-import { storage } from "../storage";
-import { canCheckin } from "../services/accessControl";
-import { wsManager } from "../websocket";
-import { cacheManager } from "../cacheManager";
-import { createRateLimiter } from "../requestGuards";
+import { isAuthenticated } from "../auth.js";
+import { storage } from "../storage.js";
+import { canCheckin } from "../services/accessControl.js";
+import { wsManager } from "../websocket.js";
+import { cacheManager } from "../cacheManager.js";
+import { createRateLimiter } from "../requestGuards.js";
 
 const checkinRateLimit = createRateLimiter({
   windowMs: 60 * 1000,

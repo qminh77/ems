@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { storage } from "../storage";
+import { storage } from "../storage.js";
 
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   try {

@@ -2,9 +2,9 @@ import bcrypt from 'bcryptjs';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import type { Express } from 'express';
-import { storage } from './storage';
+import { storage } from './storage.js';
 import { randomUUID } from 'crypto';
-import { createRateLimiter } from './requestGuards';
+import { createRateLimiter } from './requestGuards.js';
 import { z } from 'zod';
 
 const authRateLimit = createRateLimiter({

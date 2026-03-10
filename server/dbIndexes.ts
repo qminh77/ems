@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db } from "./db";
+import { db } from "./db.js";
 
 const indexStatements = [
   sql`CREATE INDEX IF NOT EXISTS idx_events_user_created_at ON events(user_id, created_at DESC)`,
