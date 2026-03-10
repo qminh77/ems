@@ -103,6 +103,41 @@ export class DatabaseStorage implements IStorage {
     return value.trim();
   }
 
+  private isSchemaCompatibilityError(error: unknown): boolean {
+    const code = (error as any)?.code;
+    return code === "42703" || code === "42P01";
+  }
+
+  private mapLegacyUserRow(row: any): User {
+    return {
+      id: row.id,
+      email: row.email ?? null,
+      firstName: row.first_name ?? row.firstName ?? null,
+      lastName: row.last_name ?? row.lastName ?? null,
+      profileImageUrl: row.profile_image_url ?? row.profileImageUrl ?? null,
+      isAdmin: false,
+      canCreateEvents: true,
+      isActive: true,
+      createdAt: row.created_at ?? row.createdAt ?? null,
+      updatedAt: row.updated_at ?? row.updatedAt ?? null,
+    };
+  }
+
+  private defaultSettingsRecord(): SystemSettings {
+    return {
+      id: 1,
+      systemName: this.defaultSystemSettings.systemName,
+      systemDescription: this.defaultSystemSettings.systemDescription,
+      contactEmail: this.defaultSystemSettings.contactEmail,
+      contactPhone: this.defaultSystemSettings.contactPhone,
+      logoUrl: this.normalizeLogoUrl(this.defaultSystemSettings.logoUrl),
+      footerText: this.defaultSystemSettings.footerText,
+      registrationEnabled: this.defaultSystemSettings.registrationEnabled,
+      createdAt: null,
+      updatedAt: null,
+    };
+  }
+
   private async ensureSystemSettingsRow(): Promise<void> {
     await db
       .insert(systemSettings)
@@ -135,28 +170,83 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      return user;
+    } catch (error) {
+      if (!this.isSchemaCompatibilityError(error)) {
+        throw error;
+      }
+
+      const result = await db.execute(sql`
+        select id, email, first_name, last_name, profile_image_url, created_at, updated_at
+        from users
+        where id = ${id}
+        limit 1
+      `);
+      const rows = (result as any).rows ?? [];
+      return rows[0] ? this.mapLegacyUserRow(rows[0]) : undefined;
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.email, email));
+      return user;
+    } catch (error) {
+      if (!this.isSchemaCompatibilityError(error)) {
+        throw error;
+      }
+
+      const result = await db.execute(sql`
+        select id, email, first_name, last_name, profile_image_url, created_at, updated_at
+        from users
+        where email = ${email}
+        limit 1
+      `);
+      const rows = (result as any).rows ?? [];
+      return rows[0] ? this.mapLegacyUserRow(rows[0]) : undefined;
+    }
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+    try {
+      const [user] = await db
+        .insert(users)
+        .values(userData)
+        .onConflictDoUpdate({
+          target: users.id,
+          set: {
+            ...userData,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      return user;
+    } catch (error) {
+      if (!this.isSchemaCompatibilityError(error)) {
+        throw error;
+      }
+
+      const result = await db.execute(sql`
+        insert into users (id, email, first_name, last_name, profile_image_url, created_at, updated_at)
+        values (${userData.id}, ${userData.email ?? null}, ${userData.firstName ?? null}, ${userData.lastName ?? null}, ${userData.profileImageUrl ?? null}, now(), now())
+        on conflict (id)
+        do update set
+          email = excluded.email,
+          first_name = excluded.first_name,
+          last_name = excluded.last_name,
+          profile_image_url = excluded.profile_image_url,
+          updated_at = now()
+        returning id, email, first_name, last_name, profile_image_url, created_at, updated_at
+      `);
+      const rows = (result as any).rows ?? [];
+      if (!rows[0]) {
+        throw new Error("Failed to upsert legacy user row");
+      }
+
+      return this.mapLegacyUserRow(rows[0]);
+    }
   }
 
   async getEventsByUserId(userId: string): Promise<Event[]> {
@@ -171,8 +261,7 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [auth] = await db.select().from(localAuth).where(eq(localAuth.username, username));
     if (!auth) return undefined;
-    const [user] = await db.select().from(users).where(eq(users.id, auth.userId));
-    return user;
+    return this.getUser(auth.userId);
   }
 
   async createLocalAuth(auth: InsertLocalAuth): Promise<LocalAuth> {
@@ -209,85 +298,122 @@ export class DatabaseStorage implements IStorage {
   }
 
   async listUsers(): Promise<User[]> {
-    return db.select().from(users).orderBy(desc(users.createdAt));
+    try {
+      return db.select().from(users).orderBy(desc(users.createdAt));
+    } catch (error) {
+      if (!this.isSchemaCompatibilityError(error)) {
+        throw error;
+      }
+
+      const result = await db.execute(sql`
+        select id, email, first_name, last_name, profile_image_url, created_at, updated_at
+        from users
+        order by created_at desc
+      `);
+      const rows = (result as any).rows ?? [];
+      return rows.map((row: any) => this.mapLegacyUserRow(row));
+    }
   }
 
   async updateUserAdmin(id: string, payload: UpdateUserAdmin): Promise<User | undefined> {
-    const [updatedUser] = await db
-      .update(users)
-      .set({
-        ...payload,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
+    try {
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          ...payload,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, id))
+        .returning();
 
-    return updatedUser;
+      return updatedUser;
+    } catch (error) {
+      if (this.isSchemaCompatibilityError(error)) {
+        return undefined;
+      }
+      throw error;
+    }
   }
 
   async getSystemSettings(): Promise<SystemSettings> {
-    await this.ensureSystemSettingsRow();
+    try {
+      await this.ensureSystemSettingsRow();
 
-    const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, 1)).limit(1);
+      const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, 1)).limit(1);
 
-    if (settings) {
-      return settings;
+      if (settings) {
+        return settings;
+      }
+
+      const [createdSettings] = await db
+        .insert(systemSettings)
+        .values({
+          id: 1,
+          systemName: this.defaultSystemSettings.systemName,
+          systemDescription: this.defaultSystemSettings.systemDescription,
+          contactEmail: this.defaultSystemSettings.contactEmail,
+          contactPhone: this.defaultSystemSettings.contactPhone,
+          logoUrl: this.normalizeLogoUrl(this.defaultSystemSettings.logoUrl),
+          footerText: this.defaultSystemSettings.footerText,
+          registrationEnabled: this.defaultSystemSettings.registrationEnabled,
+        })
+        .returning();
+
+      return createdSettings;
+    } catch (error) {
+      if (this.isSchemaCompatibilityError(error)) {
+        return this.defaultSettingsRecord();
+      }
+
+      throw error;
     }
-
-    const [createdSettings] = await db
-      .insert(systemSettings)
-      .values({
-        id: 1,
-        systemName: this.defaultSystemSettings.systemName,
-        systemDescription: this.defaultSystemSettings.systemDescription,
-        contactEmail: this.defaultSystemSettings.contactEmail,
-        contactPhone: this.defaultSystemSettings.contactPhone,
-        logoUrl: this.normalizeLogoUrl(this.defaultSystemSettings.logoUrl),
-        footerText: this.defaultSystemSettings.footerText,
-        registrationEnabled: this.defaultSystemSettings.registrationEnabled,
-      })
-      .returning();
-
-    return createdSettings;
   }
 
   async updateSystemSettings(payload: UpdateSystemSettings): Promise<SystemSettings> {
-    await this.ensureSystemSettingsRow();
+    try {
+      await this.ensureSystemSettingsRow();
 
-    const [updatedSettings] = await db
-      .update(systemSettings)
-      .set({
-        systemName: payload.systemName,
-        systemDescription: payload.systemDescription,
-        contactEmail: payload.contactEmail,
-        contactPhone: payload.contactPhone,
-        logoUrl: this.normalizeLogoUrl(payload.logoUrl),
-        footerText: payload.footerText,
-        registrationEnabled: payload.registrationEnabled,
-        updatedAt: new Date(),
-      })
-      .where(eq(systemSettings.id, 1))
-      .returning();
+      const [updatedSettings] = await db
+        .update(systemSettings)
+        .set({
+          systemName: payload.systemName,
+          systemDescription: payload.systemDescription,
+          contactEmail: payload.contactEmail,
+          contactPhone: payload.contactPhone,
+          logoUrl: this.normalizeLogoUrl(payload.logoUrl),
+          footerText: payload.footerText,
+          registrationEnabled: payload.registrationEnabled,
+          updatedAt: new Date(),
+        })
+        .where(eq(systemSettings.id, 1))
+        .returning();
 
-    if (updatedSettings) {
-      return updatedSettings;
+      if (updatedSettings) {
+        return updatedSettings;
+      }
+
+      const [createdSettings] = await db
+        .insert(systemSettings)
+        .values({
+          id: 1,
+          systemName: payload.systemName,
+          systemDescription: payload.systemDescription,
+          contactEmail: payload.contactEmail,
+          contactPhone: payload.contactPhone,
+          logoUrl: this.normalizeLogoUrl(payload.logoUrl),
+          footerText: payload.footerText,
+          registrationEnabled: payload.registrationEnabled,
+        })
+        .returning();
+
+      return createdSettings;
+    } catch (error) {
+      if (this.isSchemaCompatibilityError(error)) {
+        throw new Error("System settings schema is not initialized yet");
+      }
+
+      throw error;
     }
-
-    const [createdSettings] = await db
-      .insert(systemSettings)
-      .values({
-        id: 1,
-        systemName: payload.systemName,
-        systemDescription: payload.systemDescription,
-        contactEmail: payload.contactEmail,
-        contactPhone: payload.contactPhone,
-        logoUrl: this.normalizeLogoUrl(payload.logoUrl),
-        footerText: payload.footerText,
-        registrationEnabled: payload.registrationEnabled,
-      })
-      .returning();
-
-    return createdSettings;
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
@@ -575,13 +701,28 @@ export class DatabaseStorage implements IStorage {
 
   async searchUsersByEmailOrUsername(query: string): Promise<User[]> {
     const lowercaseQuery = query.toLowerCase();
-    
-    // Search in users table by email
-    const usersByEmail = await db
-      .select()
-      .from(users)
-      .where(sql`lower(${users.email}) LIKE ${`%${lowercaseQuery}%`}`)
-      .limit(10);
+
+    let usersByEmail: User[] = [];
+    try {
+      usersByEmail = await db
+        .select()
+        .from(users)
+        .where(sql`lower(${users.email}) LIKE ${`%${lowercaseQuery}%`}`)
+        .limit(10);
+    } catch (error) {
+      if (!this.isSchemaCompatibilityError(error)) {
+        throw error;
+      }
+
+      const result = await db.execute(sql`
+        select id, email, first_name, last_name, profile_image_url, created_at, updated_at
+        from users
+        where lower(email) like ${`%${lowercaseQuery}%`}
+        limit 10
+      `);
+      const rows = (result as any).rows ?? [];
+      usersByEmail = rows.map((row: any) => this.mapLegacyUserRow(row));
+    }
 
     // Search in localAuth table by username, then get users
     const authResults = await db
@@ -593,10 +734,24 @@ export class DatabaseStorage implements IStorage {
     const userIds = authResults.map(auth => auth.userId);
     let usersByUsername: User[] = [];
     if (userIds.length > 0) {
-      usersByUsername = await db
-        .select()
-        .from(users)
-        .where(sql`${users.id} = ANY(${userIds})`);
+      try {
+        usersByUsername = await db
+          .select()
+          .from(users)
+          .where(sql`${users.id} = ANY(${userIds})`);
+      } catch (error) {
+        if (!this.isSchemaCompatibilityError(error)) {
+          throw error;
+        }
+
+        const result = await db.execute(sql`
+          select id, email, first_name, last_name, profile_image_url, created_at, updated_at
+          from users
+          where id = any(${userIds})
+        `);
+        const rows = (result as any).rows ?? [];
+        usersByUsername = rows.map((row: any) => this.mapLegacyUserRow(row));
+      }
     }
 
     // Combine and deduplicate results
