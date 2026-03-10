@@ -5,10 +5,7 @@
   "functions": {
     "api/[...path].ts": {
       "maxDuration": 30,
-      "includeFiles": [
-        "server/**",
-        "shared/**"
-      ]
+      "includeFiles": "{server/**,shared/**}"
     }
   },
   "rewrites": [
