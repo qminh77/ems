@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -129,42 +130,42 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md" data-testid="qr-code-modal">
-        <DialogHeader>
+        <DialogHeader className="border-b pb-4">
           <DialogTitle>Mã QR sinh viên</DialogTitle>
+          <DialogDescription>Mã QR dùng cho check-in/check-out. Bạn có thể tải xuống hoặc in trực tiếp.</DialogDescription>
         </DialogHeader>
-        
-        <div className="text-center">
-          <div className="mb-6">
-            <h3 className="mb-2 font-semibold" data-testid="qr-student-name">
+
+        <div className="space-y-5 pt-2 text-center">
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <h3 className="mb-1 font-semibold" data-testid="qr-student-name">
               {student.name}
             </h3>
             <p className="text-sm text-muted-foreground" data-testid="qr-student-id">
-              MSSV/MSNV: {student.studentId || "—"}
+              MSSV/MSNV: {student.studentId || "-"}
             </p>
             <p className="text-sm text-muted-foreground" data-testid="qr-student-email">
-              Email: {student.email || "—"}
+              Email: {student.email || "-"}
             </p>
             <p className="text-sm text-muted-foreground" data-testid="qr-student-faculty">
-              Khoa: {student.faculty || "—"}
+              Khoa: {student.faculty || "-"}
             </p>
             <p className="text-sm text-muted-foreground" data-testid="qr-student-major">
-              Ngành: {student.major || "—"}
+              Ngành: {student.major || "-"}
             </p>
           </div>
-          
-          {/* QR Code Display */}
-          <div className="flex justify-center mb-6">
+
+          <div className="flex justify-center">
             {loading ? (
               <div className="flex h-64 w-64 items-center justify-center rounded-lg border bg-muted/30">
                 <div className="text-center text-muted-foreground">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-muted border-t-primary"></div>
                   <p className="text-sm">Đang tải mã QR...</p>
                 </div>
               </div>
             ) : qrCodeUrl ? (
-              <img 
-                src={qrCodeUrl} 
-                alt="QR Code" 
+              <img
+                src={qrCodeUrl}
+                alt="QR Code"
                 className="h-64 w-64 rounded-lg border object-contain bg-background p-2"
                 data-testid="qr-code-image"
               />
@@ -177,9 +178,9 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
               </div>
             )}
           </div>
-          
-          <div className="flex items-center justify-center space-x-4">
-            <Button 
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button
               onClick={handleDownload}
               disabled={!qrCodeUrl || loading}
               className="flex items-center gap-2"
@@ -188,7 +189,7 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
               <Download className="h-4 w-4" />
               Tải xuống
             </Button>
-            <Button 
+            <Button
               variant="outline"
               onClick={handlePrint}
               disabled={!qrCodeUrl || loading}

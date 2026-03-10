@@ -10,7 +10,7 @@ import archiver from "archiver";
 import { Readable } from "stream";
 import { insertAttendeeSchema } from "@shared/schema";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replitAuth";
+import { isAuthenticated } from "../auth";
 import { checkEventAccess } from "../middleware/eventAccess";
 import { ensureUniqueQRCode } from "../services/qrService";
 import { canManageAttendees } from "../services/accessControl";

@@ -188,8 +188,8 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="shadow-sm">
+      <CardHeader className="border-b">
         <CardTitle>Cộng tác viên</CardTitle>
         <CardDescription>
           Quản lý người dùng có quyền truy cập sự kiện này
@@ -200,7 +200,7 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
           {isOwner && (
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="gap-2">
                   <UserPlus className="mr-2 h-4 w-4" />
                   Thêm cộng tác viên
                 </Button>
@@ -314,11 +314,14 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
             </div>
           ) : (
             <div className="space-y-3">
+              {Array.isArray(collaborators) && collaborators.length === 0 && (
+                <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
+                  Chưa có cộng tác viên nào được thêm vào sự kiện này.
+                </div>
+              )}
+
               {Array.isArray(collaborators) && collaborators.map((collab: Collaborator) => (
-                <div
-                  key={collab.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
+                <div key={collab.id} className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center space-x-3">
                     <Avatar>
                       <AvatarImage src={collab.user.profileImageUrl || undefined} />
@@ -327,9 +330,9 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
                     <div>
                       <p className="font-medium">{getUserDisplayName(collab.user)}</p>
                       <p className="text-sm text-muted-foreground">{collab.user.email}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {collab.permissions.map(perm => {
-                          const permission = PERMISSIONS.find(p => p.value === perm);
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {collab.permissions.map((perm) => {
+                          const permission = PERMISSIONS.find((p) => p.value === perm);
                           return permission ? (
                             <Badge key={perm} variant="secondary" className="text-xs">
                               <permission.icon className="mr-1 h-3 w-3" />
@@ -342,12 +345,14 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
                   </div>
                   {isOwner && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={() => removeCollaboratorMutation.mutate(collab.userId)}
                       disabled={removeCollaboratorMutation.isPending}
+                      className="gap-2 self-end sm:self-auto"
                     >
                       <UserMinus className="h-4 w-4" />
+                      Xóa quyền
                     </Button>
                   )}
                 </div>

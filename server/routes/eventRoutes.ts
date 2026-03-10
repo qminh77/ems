@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import { insertEventSchema } from "@shared/schema";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replitAuth";
+import { isAuthenticated } from "../auth";
 import { checkEventAccess } from "../middleware/eventAccess";
 import { canEditEvent, isEventOwner } from "../services/accessControl";
 import { cacheManager } from "../cacheManager";

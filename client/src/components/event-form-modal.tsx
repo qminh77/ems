@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -98,7 +99,7 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 500);
         return;
       }
@@ -116,15 +117,16 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-screen overflow-y-auto" data-testid="event-form-modal">
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"}
-          </DialogTitle>
+      <DialogContent className="max-h-[90svh] max-w-2xl overflow-y-auto" data-testid="event-form-modal">
+        <DialogHeader className="border-b pb-4">
+          <DialogTitle>{isEditing ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"}</DialogTitle>
+          <DialogDescription>
+            Điền đầy đủ thông tin để hệ thống hiển thị sự kiện rõ ràng trên dashboard và danh sách quản lý.
+          </DialogDescription>
         </DialogHeader>
-        
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div>
+
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+          <div className="space-y-2">
             <Label htmlFor="name">Tên sự kiện *</Label>
             <Input
               id="name"
@@ -133,23 +135,23 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
               data-testid="input-event-name"
             />
             {form.formState.errors.name && (
-              <p className="mt-1 text-sm text-destructive">{form.formState.errors.name.message}</p>
+              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
           </div>
-          
-          <div>
+
+          <div className="space-y-2">
             <Label htmlFor="description">Mô tả</Label>
             <Textarea
               id="description"
               {...form.register("description")}
               placeholder="Mô tả chi tiết về sự kiện"
-              rows={3}
+              rows={4}
               data-testid="input-event-description"
             />
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div className="space-y-2">
               <Label htmlFor="eventDate">Ngày diễn ra *</Label>
               <Input
                 id="eventDate"
@@ -158,10 +160,10 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
                 data-testid="input-event-date"
               />
               {form.formState.errors.eventDate && (
-                <p className="mt-1 text-sm text-destructive">{form.formState.errors.eventDate.message}</p>
+                <p className="text-sm text-destructive">{form.formState.errors.eventDate.message}</p>
               )}
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="location">Địa điểm</Label>
               <Input
                 id="location"
@@ -171,9 +173,9 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
               />
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div className="space-y-2">
               <Label htmlFor="startTime">Thời gian bắt đầu</Label>
               <Input
                 id="startTime"
@@ -182,7 +184,7 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
                 data-testid="input-event-start-time"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="endTime">Thời gian kết thúc</Label>
               <Input
                 id="endTime"
@@ -192,28 +194,26 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
               />
             </div>
           </div>
-          
-          <div className="flex items-center justify-end space-x-4 pt-6 border-t">
-            <Button 
-              type="button" 
-              variant="outline" 
+
+          <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
               onClick={onClose}
               data-testid="button-cancel"
             >
               Hủy
             </Button>
-            <Button 
-              type="submit" 
-              disabled={mutation.isPending}
-              data-testid="button-save-event"
-            >
+            <Button type="submit" disabled={mutation.isPending} data-testid="button-save-event">
               {mutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Đang lưu...
                 </>
+              ) : isEditing ? (
+                "Cập nhật"
               ) : (
-                isEditing ? "Cập nhật" : "Tạo sự kiện"
+                "Tạo sự kiện"
               )}
             </Button>
           </div>

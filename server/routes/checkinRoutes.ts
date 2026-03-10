@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../replitAuth";
+import { isAuthenticated } from "../auth";
 import { storage } from "../storage";
 import { canCheckin } from "../services/accessControl";
 import { wsManager } from "../websocket";

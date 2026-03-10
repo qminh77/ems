@@ -5,7 +5,7 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
 export function getSession() {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  const sessionTtl = 7 * 24 * 60 * 60 * 1000;
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
@@ -13,6 +13,7 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+
   return session({
     secret: process.env.SESSION_SECRET || "dev-session-secret",
     store: sessionStore,
@@ -36,10 +37,6 @@ export async function setupAuth(app: Express) {
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
-  app.get("/api/login", (_req, res) => {
-    return res.redirect("/login");
-  });
-
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
       req.session.destroy(() => {
@@ -53,7 +50,6 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
   const userId = user?.claims?.sub;
 
-  // Check if user is authenticated at all
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Unauthorized" });
   }

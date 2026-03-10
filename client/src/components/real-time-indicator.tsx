@@ -33,7 +33,7 @@ export function RealTimeIndicator({ action, attendeeName, studentId, timestamp }
           exit={{ opacity: 0, y: -12 }}
           className="fixed right-4 top-20 z-50 max-w-sm"
         >
-          <div className="flex items-center gap-3 rounded-lg border bg-card p-4 shadow-lg">
+          <div className="flex items-center gap-3 rounded-lg border bg-card p-4 shadow-sm">
             <div className="flex h-10 w-10 items-center justify-center rounded-full border bg-muted">
               <Icon className="h-5 w-5" />
             </div>
@@ -59,7 +59,7 @@ export function MultipleRealTimeIndicators({ updates }: { updates: RealTimeIndic
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: index * 0.08 }}
-          className="rounded-lg border bg-card p-4 shadow-lg"
+          className="rounded-lg border bg-card p-4 shadow-sm"
         >
           <p className="text-sm font-semibold">{update.action === "check_in" ? "Check-in" : "Check-out"} Real-time</p>
           <p className="text-sm text-muted-foreground">{update.attendeeName}</p>

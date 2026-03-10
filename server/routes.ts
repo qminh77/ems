@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import path from "path";
 import fs from "fs";
-import { setupAuth } from "./replitAuth";
+import { setupAuth } from "./auth";
 import { setupLocalAuth } from "./localAuth";
 import { registerCoreRoutes } from "./routes/coreRoutes";
 import { registerEventRoutes } from "./routes/eventRoutes";

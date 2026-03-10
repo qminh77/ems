@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../replitAuth";
+import { isAuthenticated } from "../auth";
 import { checkEventAccess } from "../middleware/eventAccess";
 import { storage } from "../storage";
 import { isEventOwner } from "../services/accessControl";

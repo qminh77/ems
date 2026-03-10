@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { updateSystemSettingsSchema, updateUserAdminSchema } from "@shared/schema";
-import { isAuthenticated } from "../replitAuth";
+import { isAuthenticated } from "../auth";
 import { requireAdmin } from "../middleware/adminAccess";
 import { storage } from "../storage";
 import { cacheManager } from "../cacheManager";

@@ -1,15 +1,28 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import QRScanner from "@/components/qr-scanner";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { RealTimeIndicator } from "@/components/real-time-indicator";
-import { Check, Clock3, Loader2, LogIn, LogOut, QrCode, User } from "lucide-react";
+import {
+  Check,
+  Clock3,
+  Loader2,
+  LogIn,
+  LogOut,
+  QrCode,
+  ScanLine,
+  User,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 
 export default function Checkin() {
   const [manualCode, setManualCode] = useState("");
@@ -17,12 +30,13 @@ export default function Checkin() {
   const [lastResult, setLastResult] = useState<any>(null);
   const [scanCooldown, setScanCooldown] = useState(false);
   const [realtimeUpdate, setRealtimeUpdate] = useState<any>(null);
+
   const { toast } = useToast();
   const { isConnected, lastMessage } = useWebSocket();
 
   const { data: recentCheckins = [] } = useQuery<any[]>({
     queryKey: ["/api/checkin/recent"],
-    refetchInterval: isConnected ? false : 5000, // Only poll if WebSocket is not connected
+    refetchInterval: isConnected ? false : 5000,
   });
 
   const { data: stats } = useQuery<any>({
@@ -45,25 +59,17 @@ export default function Checkin() {
         description: data.message,
       });
       setManualCode("");
-      
-      // Thêm cooldown 3 giây sau khi quét thành công
       setScanCooldown(true);
-      setTimeout(() => {
-        setScanCooldown(false);
-      }, 3000);
+      setTimeout(() => setScanCooldown(false), 3000);
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Lỗi",
         description: "Mã QR không hợp lệ hoặc đã được sử dụng",
         variant: "destructive",
       });
-      
-      // Thêm cooldown ngắn hơn khi lỗi (1.5 giây)
       setScanCooldown(true);
-      setTimeout(() => {
-        setScanCooldown(false);
-      }, 1500);
+      setTimeout(() => setScanCooldown(false), 1500);
     },
   });
 
@@ -79,256 +85,231 @@ export default function Checkin() {
   };
 
   const getActionColor = (action: string) => {
-    return action === 'check_in' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground';
+    return action === "check_in" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground";
   };
 
   const getActionText = (action: string) => {
-    return action === 'check_in' ? 'Check-in' : 'Check-out';
+    return action === "check_in" ? "Check-in" : "Check-out";
   };
 
   const getActionIcon = (action: string) => {
-    return action === 'check_in' ? LogIn : LogOut;
+    return action === "check_in" ? LogIn : LogOut;
   };
 
-  // Handle real-time updates from WebSocket
   useEffect(() => {
-    if (lastMessage?.type === 'checkin_update' && lastMessage?.data) {
+    if (lastMessage?.type === "checkin_update" && lastMessage?.data) {
       setRealtimeUpdate({
         action: lastMessage.data.action,
         attendeeName: lastMessage.data.attendee.name,
         studentId: lastMessage.data.attendee.studentId,
-        timestamp: lastMessage.data.timestamp
+        timestamp: lastMessage.data.timestamp,
       });
-      // Clear after animation
       setTimeout(() => setRealtimeUpdate(null), 6000);
     }
   }, [lastMessage]);
 
+  const checkoutsToday = useMemo(
+    () =>
+      recentCheckins.filter(
+        (c: any) => c.action === "check_out" && new Date(c.timestamp).toDateString() === new Date().toDateString()
+      ).length,
+    [recentCheckins]
+  );
+
+  const currentAttendees = Math.max((stats?.todayCheckins || 0) - checkoutsToday, 0);
+
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6" data-testid="page-checkin">
-      {/* Real-time update indicator */}
-      {realtimeUpdate && (
-        <RealTimeIndicator {...realtimeUpdate} />
-      )}
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Check-in/Check-out</h1>
-        <p className="mt-2 text-muted-foreground">Quét mã QR để check-in/check-out sinh viên</p>
+    <div className="page-shell" data-testid="page-checkin">
+      {realtimeUpdate && <RealTimeIndicator {...realtimeUpdate} />}
+
+      <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:p-6">
+        <div>
+          <h1 className="page-title">Check-in Operations</h1>
+          <p className="page-description">Màn hình vận hành trực tiếp cho check-in/check-out bằng QR hoặc nhập mã thủ công.</p>
+        </div>
+        <Badge variant={isConnected ? "default" : "secondary"} className="w-fit gap-1.5">
+          {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+          {isConnected ? "Realtime đang bật" : "Realtime tạm ngắt"}
+        </Badge>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* QR Scanner */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold">Quét mã QR</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {/* QR Scanner Component */}
-              <QRScanner
-                active={scannerActive}
-                onScan={handleQRScanned}
-                onActivate={() => !scanCooldown && setScannerActive(true)}
-                onDeactivate={() => setScannerActive(false)}
-              />
-              
-              {/* Thông báo cooldown */}
-              {scanCooldown && (
-                <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    <Clock3 className="mr-2 inline h-4 w-4" />
-                    Vui lòng đợi 3 giây trước khi quét mã tiếp theo...
-                  </p>
-                </div>
-              )}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="shadow-sm">
+          <CardContent className="p-5">
+            <p className="text-sm text-muted-foreground">Tổng check-in hôm nay</p>
+            <div className="mt-3 flex items-end justify-between">
+              <p className="text-3xl font-semibold" data-testid="stat-today-checkins">{stats?.todayCheckins || 0}</p>
+              <LogIn className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardContent className="p-5">
+            <p className="text-sm text-muted-foreground">Check-out hôm nay</p>
+            <div className="mt-3 flex items-end justify-between">
+              <p className="text-3xl font-semibold" data-testid="stat-today-checkouts">{checkoutsToday}</p>
+              <LogOut className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardContent className="p-5">
+            <p className="text-sm text-muted-foreground">Đang tham dự</p>
+            <div className="mt-3 flex items-end justify-between">
+              <p className="text-3xl font-semibold" data-testid="stat-current-attendees">{currentAttendees}</p>
+              <User className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-              {/* Manual QR Code Input */}
-              <div className="border-t pt-6">
-                <h3 className="mb-4 font-medium">Nhập mã QR thủ công</h3>
-                <div className="flex flex-col gap-2 sm:flex-row sm:space-x-0">
+      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1.35fr_1fr_1fr]">
+        <Card className="shadow-sm">
+          <CardHeader className="border-b">
+            <CardTitle className="text-lg">Trạm quét QR</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-5">
+            <Tabs defaultValue="scan" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="scan" className="gap-2">
+                  <ScanLine className="h-4 w-4" />
+                  Quét camera
+                </TabsTrigger>
+                <TabsTrigger value="manual" className="gap-2">
+                  <QrCode className="h-4 w-4" />
+                  Nhập mã tay
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="scan" className="space-y-4">
+                <QRScanner
+                  active={scannerActive}
+                  onScan={handleQRScanned}
+                  onActivate={() => !scanCooldown && setScannerActive(true)}
+                  onDeactivate={() => setScannerActive(false)}
+                />
+
+                {scanCooldown && (
+                  <div className="rounded-lg border bg-muted/40 p-3 text-center text-sm text-muted-foreground">
+                    <Clock3 className="mr-2 inline h-4 w-4" />
+                    Hệ thống đang cooldown. Vui lòng quét mã tiếp theo sau vài giây.
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="manual" className="space-y-3">
+                <p className="text-sm text-muted-foreground">Dùng cho trường hợp camera không khả dụng hoặc cần nhập nhanh từ thiết bị khác.</p>
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
                     type="text"
                     placeholder="Nhập mã QR..."
                     value={manualCode}
                     onChange={(e) => setManualCode(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleManualCheckin()}
+                    onKeyDown={(e) => e.key === "Enter" && handleManualCheckin()}
                     className="flex-1"
                     data-testid="input-manual-qr"
                   />
-                  <Button 
+                  <Button
                     onClick={handleManualCheckin}
                     disabled={!manualCode.trim() || checkinMutation.isPending}
+                    className="sm:w-28"
                     data-testid="button-manual-checkin"
                   >
                     {checkinMutation.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Check className="h-4 w-4" />
+                      <>
+                        <Check className="mr-2 h-4 w-4" />
+                        Xác nhận
+                      </>
                     )}
                   </Button>
                 </div>
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
-        {/* Check-in Results */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold">Kết quả check-in</CardTitle>
+        <Card className="shadow-sm">
+          <CardHeader className="border-b">
+            <CardTitle className="text-lg">Kết quả gần nhất</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-5">
             {lastResult ? (
-              <div className="text-center py-8" data-testid="checkin-result">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border bg-muted">
-                  <Check className="h-8 w-8" />
+              <div className="space-y-4" data-testid="checkin-result">
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Người tham dự</p>
+                  <p className="mt-1 text-lg font-semibold" data-testid="result-student-name">{lastResult.attendee.name}</p>
+                  <p className="text-sm text-muted-foreground" data-testid="result-student-id">MSSV/MSNV: {lastResult.attendee.studentId || "-"}</p>
+                  <p className="text-sm text-muted-foreground" data-testid="result-email">Email: {lastResult.attendee.email || "-"}</p>
+                  <Separator className="my-3" />
+                  <p className="text-sm font-medium" data-testid="result-status">{lastResult.message}</p>
                 </div>
-                <h3 className="mb-2 text-lg font-semibold" data-testid="result-student-name">
-                  {lastResult.attendee.name}
-                </h3>
-                <p className="text-muted-foreground" data-testid="result-student-id">
-                  MSSV/MSNV: {lastResult.attendee.studentId || "—"}
-                </p>
-                <p className="text-muted-foreground" data-testid="result-email">
-                  Email: {lastResult.attendee.email || "—"}
-                </p>
-                <p className="mb-4 text-muted-foreground" data-testid="result-faculty-major">
-                  Khoa: {lastResult.attendee.faculty || "—"} | Ngành: {lastResult.attendee.major || "—"}
-                </p>
-                <p className="mb-6 font-medium" data-testid="result-status">
-                  ✓ {lastResult.message}
-                </p>
-                
-                <div className="rounded-lg border bg-muted/30 p-4 text-left">
-                  <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                    <div>
-                      <span className="text-muted-foreground">Sự kiện:</span>
-                      <p className="font-medium" data-testid="result-event-name">{lastResult.event.name}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Thời gian:</span>
-                      <p className="font-medium" data-testid="result-time">
-                        {new Date().toLocaleTimeString('vi-VN')}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Mã QR:</span>
-                      <p className="font-medium" data-testid="result-qrcode">
-                        {lastResult.attendee.qrCode || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Trạng thái:</span>
-                      <p className="font-medium" data-testid="result-action">
-                        {getActionText(lastResult.action)}
-                      </p>
-                    </div>
+
+                <div className="grid grid-cols-1 gap-3 rounded-lg border p-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Sự kiện</p>
+                    <p className="font-medium" data-testid="result-event-name">{lastResult.event.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Trạng thái</p>
+                    <Badge className={getActionColor(lastResult.action)} data-testid="result-action">{getActionText(lastResult.action)}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Thời gian</p>
+                    <p className="font-medium" data-testid="result-time">{new Date().toLocaleTimeString("vi-VN")}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Khoa / Ngành</p>
+                    <p className="font-medium" data-testid="result-faculty-major">
+                      {lastResult.attendee.faculty || "-"} / {lastResult.attendee.major || "-"}
+                    </p>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="py-8 text-center text-muted-foreground" data-testid="no-recent-result">
-                <QrCode className="mx-auto mb-4 h-10 w-10" />
-                <p>Quét mã QR để xem kết quả</p>
+              <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground" data-testid="no-recent-result">
+                <QrCode className="mx-auto mb-3 h-10 w-10" />
+                <p>Chưa có kết quả gần nhất.</p>
               </div>
             )}
+          </CardContent>
+        </Card>
 
-            {/* Recent Check-ins */}
-            <div className="mt-8" data-testid="recent-checkins">
-              <h3 className="mb-4 font-medium">Check-in gần đây</h3>
-              {recentCheckins.length === 0 ? (
-                <div className="py-6 text-center text-muted-foreground" data-testid="no-recent-checkins">
-                  <p>Chưa có check-in nào hôm nay</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {recentCheckins.slice(0, 5).map((checkin: any, index: number) => (
-                    <div 
-                      key={checkin.id} 
-                      className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between"
-                      data-testid={`recent-checkin-${index}`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full border bg-muted">
-                          <User className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm" data-testid={`checkin-name-${index}`}>
-                            {checkin.attendee.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground" data-testid={`checkin-id-${index}`}>
-                            {checkin.attendee.studentId} - {checkin.attendee.faculty}
-                          </p>
-                          <p className="text-xs text-muted-foreground" data-testid={`checkin-time-${index}`}>
-                            {new Date(checkin.timestamp).toLocaleTimeString('vi-VN')}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge className={getActionColor(checkin.action)} data-testid={`checkin-action-${index}`}>
-                        {(() => {
-                          const Icon = getActionIcon(checkin.action);
-                          return <Icon className="mr-1 h-3 w-3" />;
-                        })()}
-                        {getActionText(checkin.action)}
-                      </Badge>
+        <Card className="shadow-sm">
+          <CardHeader className="border-b">
+            <CardTitle className="text-lg">Activity Feed</CardTitle>
+          </CardHeader>
+          <CardContent className="max-h-[620px] space-y-2 overflow-auto pt-5" data-testid="recent-checkins">
+            {recentCheckins.length === 0 ? (
+              <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground" data-testid="no-recent-checkins">
+                <p>Chưa có check-in nào hôm nay.</p>
+              </div>
+            ) : (
+              recentCheckins.slice(0, 20).map((checkin: any, index: number) => (
+                <div key={checkin.id} className="rounded-lg border bg-muted/20 p-3" data-testid={`recent-checkin-${index}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium" data-testid={`checkin-name-${index}`}>{checkin.attendee.name}</p>
+                      <p className="text-xs text-muted-foreground" data-testid={`checkin-id-${index}`}>
+                        {checkin.attendee.studentId || "-"}
+                        {checkin.attendee.faculty ? ` - ${checkin.attendee.faculty}` : ""}
+                      </p>
                     </div>
-                  ))}
+                    <Badge className={getActionColor(checkin.action)} data-testid={`checkin-action-${index}`}>
+                      {(() => {
+                        const Icon = getActionIcon(checkin.action);
+                        return <Icon className="mr-1 h-3 w-3" />;
+                      })()}
+                      {getActionText(checkin.action)}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground" data-testid={`checkin-time-${index}`}>
+                    {new Date(checkin.timestamp).toLocaleDateString("vi-VN")} - {new Date(checkin.timestamp).toLocaleTimeString("vi-VN")}
+                  </p>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Today's Stats */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Tổng check-in hôm nay</p>
-                <p className="text-3xl font-semibold" data-testid="stat-today-checkins">
-                  {stats?.todayCheckins || 0}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted">
-                <LogIn className="h-5 w-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Check-out hôm nay</p>
-                <p className="text-3xl font-semibold" data-testid="stat-today-checkouts">
-                  {recentCheckins.filter((c: any) => c.action === 'check_out' && 
-                    new Date(c.timestamp).toDateString() === new Date().toDateString()).length}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted">
-                <LogOut className="h-5 w-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Đang tham dự</p>
-                <p className="text-3xl font-semibold" data-testid="stat-current-attendees">
-                  {(stats?.todayCheckins || 0) - recentCheckins.filter((c: any) => 
-                    c.action === 'check_out' && 
-                    new Date(c.timestamp).toDateString() === new Date().toDateString()).length}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted">
-                <User className="h-5 w-5" />
-              </div>
-            </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

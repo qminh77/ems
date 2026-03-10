@@ -6,13 +6,13 @@ import { z } from "zod";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -96,7 +96,7 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 500);
         return;
       }
@@ -116,16 +116,17 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-screen overflow-y-auto" data-testid="student-form-modal">
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Chỉnh sửa sinh viên" : "Thêm sinh viên"}
-          </DialogTitle>
+      <DialogContent className="max-h-[90svh] max-w-lg overflow-y-auto" data-testid="student-form-modal">
+        <DialogHeader className="border-b pb-4">
+          <DialogTitle>{isEditing ? "Chỉnh sửa sinh viên" : "Thêm sinh viên"}</DialogTitle>
+          <DialogDescription>
+            Cập nhật thông tin người tham gia theo chuẩn để hỗ trợ tìm kiếm, check-in và xuất dữ liệu chính xác.
+          </DialogDescription>
         </DialogHeader>
-        
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
           {!isEditing && (
-            <div>
+            <div className="space-y-2">
               <Label>Sự kiện</Label>
               <div className="mt-1 rounded-lg border bg-muted/30 p-3">
                 <p className="font-medium" data-testid="selected-event-display">
@@ -134,8 +135,8 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               </div>
             </div>
           )}
-          
-          <div>
+
+          <div className="space-y-2">
             <Label htmlFor="name">Tên *</Label>
             <Input
               id="name"
@@ -144,11 +145,11 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               data-testid="input-student-name"
             />
             {form.formState.errors.name && (
-              <p className="mt-1 text-sm text-destructive">{form.formState.errors.name.message}</p>
+              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
           </div>
-          
-          <div>
+
+          <div className="space-y-2">
             <Label htmlFor="studentId">MSSV/MSNV *</Label>
             <Input
               id="studentId"
@@ -158,11 +159,11 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               disabled={isEditing}
             />
             {form.formState.errors.studentId && (
-              <p className="mt-1 text-sm text-destructive">{form.formState.errors.studentId.message}</p>
+              <p className="text-sm text-destructive">{form.formState.errors.studentId.message}</p>
             )}
           </div>
-          
-          <div>
+
+          <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -172,11 +173,11 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               data-testid="input-student-email"
             />
             {form.formState.errors.email && (
-              <p className="mt-1 text-sm text-destructive">{form.formState.errors.email.message}</p>
+              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
             )}
           </div>
-          
-          <div>
+
+          <div className="space-y-2">
             <Label htmlFor="faculty">Khoa</Label>
             <Input
               id="faculty"
@@ -185,8 +186,8 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               data-testid="input-student-faculty"
             />
           </div>
-          
-          <div>
+
+          <div className="space-y-2">
             <Label htmlFor="major">Ngành</Label>
             <Input
               id="major"
@@ -195,28 +196,26 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               data-testid="input-student-major"
             />
           </div>
-          
-          <div className="flex items-center justify-end space-x-4 pt-6 border-t">
-            <Button 
-              type="button" 
-              variant="outline" 
+
+          <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
               onClick={onClose}
               data-testid="button-cancel"
             >
               Hủy
             </Button>
-            <Button 
-              type="submit" 
-              disabled={mutation.isPending}
-              data-testid="button-save-student"
-            >
+            <Button type="submit" disabled={mutation.isPending} data-testid="button-save-student">
               {mutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Đang lưu...
                 </>
+              ) : isEditing ? (
+                "Cập nhật"
               ) : (
-                isEditing ? "Cập nhật" : "Thêm sinh viên"
+                "Thêm sinh viên"
               )}
             </Button>
           </div>
