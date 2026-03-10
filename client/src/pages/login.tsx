@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, GraduationCap, LogIn, UserPlus } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, LogIn, ShieldCheck, UserPlus } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { usePublicSystemSettings } from "@/hooks/useSystemSettings";
 
@@ -173,29 +174,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-background">
-              {systemSettings?.logoUrl ? (
-                <img src={systemSettings.logoUrl} alt="logo" className="h-5 w-5 rounded object-contain" />
-              ) : (
-                <GraduationCap className="h-4 w-4" />
-              )}
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-muted/30 p-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,theme(colors.primary/8),transparent_55%)]" />
+      <Card className="relative w-full max-w-md border bg-card/95 backdrop-blur">
+        <CardHeader className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-background">
+                {systemSettings?.logoUrl ? (
+                  <img src={systemSettings.logoUrl} alt="logo" className="h-5 w-5 rounded object-contain" />
+                ) : (
+                  <GraduationCap className="h-4 w-4" />
+                )}
+              </div>
+              <CardTitle className="text-xl">{systemSettings?.systemName || "EMS Platform"}</CardTitle>
             </div>
-            <CardTitle className="text-xl">{systemSettings?.systemName || "EMS Platform"}</CardTitle>
           </div>
-          <CardDescription>Đăng nhập hoặc đăng ký tài khoản nội bộ.</CardDescription>
+          <CardDescription>Truy cập hệ thống bằng tài khoản nội bộ.</CardDescription>
+          <div className="inline-flex w-fit items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Kết nối bảo mật
+          </div>
         </CardHeader>
 
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="mb-5 grid w-full grid-cols-2">
               <TabsTrigger value="login">Đăng nhập</TabsTrigger>
-              <TabsTrigger value="register" disabled={!isRegistrationEnabled}>
-                Đăng ký
-              </TabsTrigger>
+              <TabsTrigger value="register" disabled={!isRegistrationEnabled}>Đăng ký</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login" className="space-y-4">
@@ -205,6 +211,7 @@ export default function LoginPage() {
                   <Input
                     id="username"
                     type="text"
+                    placeholder="name@example.com"
                     value={loginData.username}
                     onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
                     disabled={isLoading}
@@ -218,6 +225,7 @@ export default function LoginPage() {
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
+                      placeholder="Nhập mật khẩu"
                       value={loginData.password}
                       onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                       disabled={isLoading}
@@ -246,9 +254,7 @@ export default function LoginPage() {
 
             <TabsContent value="register" className="space-y-4">
               {!isRegistrationEnabled && (
-                <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-                  Đăng ký đang tạm tắt.
-                </div>
+                <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">Đăng ký đang tạm tắt.</div>
               )}
 
               <form onSubmit={handleRegister} className="space-y-4">
@@ -331,11 +337,14 @@ export default function LoginPage() {
 
                 <Button type="submit" className="w-full" disabled={isLoading || !isRegistrationEnabled} data-testid="button-register">
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Đăng ký tài khoản
+                  Tạo tài khoản
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
+
+          <Separator className="my-5" />
+          <p className="text-center text-xs text-muted-foreground">{systemSettings?.footerText || "© EMS Platform"}</p>
         </CardContent>
       </Card>
     </div>
