@@ -4,8 +4,8 @@ let appPromise: Promise<express.Express> | null = null;
 
 async function createVercelApp() {
   const [{ registerRoutes }, { setSecurityHeaders }] = await Promise.all([
-    import("../server/routes"),
-    import("../server/requestGuards"),
+    import("../server/routes.ts"),
+    import("../server/requestGuards.ts"),
   ]);
 
   const app = express();
