@@ -1,13 +1,13 @@
 import express from "express";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
-const { registerRoutes } = require("../server/routes");
-const { setSecurityHeaders } = require("../server/requestGuards");
 
 let appPromise: Promise<express.Express> | null = null;
 
 async function createVercelApp() {
+  const [{ registerRoutes }, { setSecurityHeaders }] = await Promise.all([
+    import("../server/routes.js"),
+    import("../server/requestGuards.js"),
+  ]);
+
   const app = express();
 
   app.use(express.json());
