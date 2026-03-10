@@ -23,7 +23,7 @@ function Router() {
   if (isLoading) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-muted/30 px-4">
-        <div className="w-full max-w-sm rounded-xl border bg-card p-8 text-center shadow-sm">
+        <div className="w-full max-w-sm rounded-xl border bg-card p-8 text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-muted border-t-primary"></div>
           <p className="mt-4 text-sm font-medium">Đang khởi tạo hệ thống...</p>
         </div>
@@ -41,9 +41,9 @@ function Router() {
   return (
     <SidebarProvider>
       <Sidebar />
-      <SidebarInset className="min-h-svh bg-muted/20">
+      <SidebarInset className="min-h-svh min-w-0 bg-muted/20">
         <Navbar />
-        <div className="flex-1 overflow-y-auto pb-24 md:pb-6">
+        <div className="flex-1 min-w-0 overflow-y-auto pb-24 md:pb-6">
           <Switch>
             <Route path="/" component={Dashboard} />
             <Route path="/events" component={Events} />

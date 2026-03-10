@@ -19,13 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -188,12 +181,10 @@ export function CollaboratorsManager({ eventId, userRole }: CollaboratorsManager
   };
 
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader className="border-b">
         <CardTitle>Cộng tác viên</CardTitle>
-        <CardDescription>
-          Quản lý người dùng có quyền truy cập sự kiện này
-        </CardDescription>
+        <CardDescription>Quản lý quyền truy cập sự kiện.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

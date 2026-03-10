@@ -152,10 +152,7 @@ export default function Events() {
   return (
     <div className="page-shell" data-testid="page-events">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="page-title">Quản lý sự kiện</h1>
-          <p className="page-description">Tạo, theo dõi và điều phối toàn bộ sự kiện trong một không gian tập trung.</p>
-        </div>
+        <h1 className="page-title">Quản lý sự kiện</h1>
         <Button
           onClick={handleCreateEvent}
           className="w-full gap-2 sm:w-auto"
@@ -169,7 +166,7 @@ export default function Events() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Tổng sự kiện</CardTitle>
           </CardHeader>
@@ -177,7 +174,7 @@ export default function Events() {
             <p className="text-3xl font-semibold">{summary.total}</p>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Sắp diễn ra</CardTitle>
           </CardHeader>
@@ -185,7 +182,7 @@ export default function Events() {
             <p className="text-3xl font-semibold">{summary.upcoming}</p>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Diễn ra hôm nay</CardTitle>
           </CardHeader>
@@ -193,7 +190,7 @@ export default function Events() {
             <p className="text-3xl font-semibold">{summary.today}</p>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Đã kết thúc</CardTitle>
           </CardHeader>
@@ -203,7 +200,7 @@ export default function Events() {
         </Card>
       </div>
 
-      <Card className="shadow-sm">
+      <Card>
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -246,7 +243,7 @@ export default function Events() {
       </Card>
 
       {filteredEvents.length === 0 ? (
-        <Card className="shadow-sm" data-testid="no-events">
+        <Card data-testid="no-events">
           <CardContent className="p-4 sm:p-6">
             <Empty>
               <EmptyHeader>
@@ -279,7 +276,7 @@ export default function Events() {
           </div>
 
           <TabsContent value="table" className="mt-0">
-            <Card className="overflow-hidden shadow-sm">
+            <Card className="overflow-hidden">
               <CardContent className="p-0">
                 <Table>
                   <TableHeader className="bg-muted/40">
@@ -362,7 +359,7 @@ export default function Events() {
           <TabsContent value="cards" className="mt-0">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {filteredEvents.map((event, index) => (
-                <Card key={event.id} className="overflow-hidden shadow-sm" data-testid={`event-card-${index}`}>
+                <Card key={event.id} className="overflow-hidden" data-testid={`event-card-${index}`}>
                   <CardContent className="space-y-4 p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">

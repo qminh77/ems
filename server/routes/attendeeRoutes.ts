@@ -25,6 +25,87 @@ const upload = multer({
 });
 
 export function registerAttendeeRoutes(app: Express) {
+  const handleBulkDeleteAttendees = async (req: any, res: any) => {
+    try {
+      const rawIds =
+        req.body?.attendeeIds ??
+        req.body?.ids ??
+        (typeof req.query?.attendeeIds === "string" ? req.query.attendeeIds.split(",") : undefined) ??
+        (typeof req.query?.ids === "string" ? req.query.ids.split(",") : undefined);
+      const attendeeIds = Array.isArray(rawIds)
+        ? rawIds
+            .map((id) => Number(id))
+            .filter((id) => Number.isInteger(id) && id > 0)
+        : [];
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+
+      if (attendeeIds.length === 0) {
+        return res.status(400).json({ message: "Danh sách ID sinh viên không hợp lệ" });
+      }
+
+      const attendees = await storage.getAttendeesByIds(attendeeIds);
+      const attendeesByEvent = new Map<number, typeof attendees>();
+
+      for (const attendee of attendees) {
+        const eventAttendees = attendeesByEvent.get(attendee.eventId) || [];
+        eventAttendees.push(attendee);
+        attendeesByEvent.set(attendee.eventId, eventAttendees);
+      }
+
+      const allowedEventIds = new Set<number>();
+      const deniedEventIds = new Set<number>();
+
+      for (const eventId of Array.from(attendeesByEvent.keys())) {
+        const access = await storage.checkEventAccess(eventId, userId);
+        if (access.hasAccess && canManageAttendees(access)) {
+          allowedEventIds.add(eventId);
+        } else {
+          deniedEventIds.add(eventId);
+        }
+      }
+
+      const attendeesToDelete = attendees.filter((attendee) => allowedEventIds.has(attendee.eventId));
+      const validIds = attendeesToDelete.map((attendee) => attendee.id);
+
+      if (validIds.length === 0) {
+        return res.status(403).json({ message: "Bạn không có quyền xóa những sinh viên này" });
+      }
+
+      for (const attendee of attendeesToDelete) {
+        if (attendee.qrPath) {
+          const fullPath = path.join(process.cwd(), attendee.qrPath);
+          if (fs.existsSync(fullPath)) {
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (error) {
+              console.error(`Failed to delete QR file for attendee ${attendee.id}:`, error);
+            }
+          }
+        }
+      }
+
+      const result = await storage.deleteMultipleAttendees(validIds);
+      cacheManager.invalidatePattern("stats:");
+
+      return res.json({
+        message: `Đã xóa thành công ${result.deletedCount}/${attendeeIds.length} sinh viên`,
+        deletedCount: result.deletedCount,
+        totalRequested: attendeeIds.length,
+        errors: [
+          ...result.errors,
+          ...(deniedEventIds.size > 0 ? [`Khong du quyen xoa sinh vien trong ${deniedEventIds.size} su kien`] : []),
+        ],
+      });
+    } catch (error) {
+      console.error("Error bulk deleting attendees:", error);
+      return res.status(500).json({ message: "Lỗi khi xóa sinh viên" });
+    }
+  };
+
   app.get("/api/events/:eventId/attendees", isAuthenticated, checkEventAccess, async (req: any, res) => {
     try {
       const eventId = parseInt(req.params.eventId, 10);
@@ -138,77 +219,8 @@ export function registerAttendeeRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/attendees/bulk", isAuthenticated, async (req: any, res) => {
-    try {
-      const { attendeeIds } = req.body;
-      const userId = req.user?.claims?.sub;
-
-      if (!userId) {
-        return res.status(401).json({ message: "User ID not found" });
-      }
-
-      if (!attendeeIds || !Array.isArray(attendeeIds) || attendeeIds.length === 0) {
-        return res.status(400).json({ message: "Danh sách ID sinh viên không hợp lệ" });
-      }
-
-      const attendees = await storage.getAttendeesByIds(attendeeIds);
-      const attendeesByEvent = new Map<number, typeof attendees>();
-
-      for (const attendee of attendees) {
-        const eventAttendees = attendeesByEvent.get(attendee.eventId) || [];
-        eventAttendees.push(attendee);
-        attendeesByEvent.set(attendee.eventId, eventAttendees);
-      }
-
-      const allowedEventIds = new Set<number>();
-      const deniedEventIds = new Set<number>();
-
-      for (const eventId of Array.from(attendeesByEvent.keys())) {
-        const access = await storage.checkEventAccess(eventId, userId);
-        if (access.hasAccess && canManageAttendees(access)) {
-          allowedEventIds.add(eventId);
-        } else {
-          deniedEventIds.add(eventId);
-        }
-      }
-
-      const attendeesToDelete = attendees.filter((attendee) => allowedEventIds.has(attendee.eventId));
-      const validIds = attendeesToDelete.map((attendee) => attendee.id);
-
-      if (validIds.length === 0) {
-        return res.status(403).json({ message: "Bạn không có quyền xóa những sinh viên này" });
-      }
-
-      for (const attendee of attendeesToDelete) {
-        if (attendee.qrPath) {
-          const fullPath = path.join(process.cwd(), attendee.qrPath);
-          if (fs.existsSync(fullPath)) {
-            try {
-              fs.unlinkSync(fullPath);
-            } catch (error) {
-              console.error(`Failed to delete QR file for attendee ${attendee.id}:`, error);
-            }
-          }
-        }
-      }
-
-      const result = await storage.deleteMultipleAttendees(validIds);
-      cacheManager.invalidatePattern("stats:");
-
-      res.json({
-        message: `Đã xóa thành công ${result.deletedCount}/${attendeeIds.length} sinh viên`,
-        deletedCount: result.deletedCount,
-        totalRequested: attendeeIds.length,
-        errors: [
-          ...result.errors,
-          ...(deniedEventIds.size > 0 ? [`Khong du quyen xoa sinh vien trong ${deniedEventIds.size} su kien`] : []),
-        ],
-      });
-    } catch (error) {
-      console.error("Error bulk deleting attendees:", error);
-      res.status(500).json({ message: "Lỗi khi xóa sinh viên" });
-    }
-  });
+  app.delete("/api/attendees/bulk", isAuthenticated, handleBulkDeleteAttendees);
+  app.post("/api/attendees/bulk-delete", isAuthenticated, handleBulkDeleteAttendees);
 
   app.get("/api/attendees/:id/qr", isAuthenticated, async (req: any, res) => {
     const attendeeId = parseInt(req.params.id, 10);

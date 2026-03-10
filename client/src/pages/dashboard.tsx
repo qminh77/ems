@@ -88,27 +88,22 @@ export default function Dashboard() {
 
   return (
     <div className="page-shell" data-testid="page-dashboard">
-      <section className="rounded-xl border bg-card p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="page-title">Tổng quan hệ thống</h1>
-            <p className="page-description">Theo dõi vận hành sự kiện, điểm danh và dữ liệu sinh viên theo thời gian thực.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={isConnected ? "default" : "secondary"} className="gap-1.5">
-              {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-              {isConnected ? "WebSocket đang kết nối" : "Đang dùng polling"}
-            </Badge>
-            <Button variant="outline" onClick={() => setLocation("/events")} className="gap-2">
-              Quản lý sự kiện
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
+      <section className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="page-title">Tổng quan hệ thống</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={isConnected ? "default" : "secondary"} className="gap-1.5">
+            {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+            {isConnected ? "WebSocket đang kết nối" : "Đang dùng polling"}
+          </Badge>
+          <Button variant="outline" onClick={() => setLocation("/events")} className="gap-2">
+            Quản lý sự kiện
+            <ArrowRight className="h-4 w-4" />
+          </Button>
         </div>
       </section>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Tổng sự kiện</CardTitle>
           </CardHeader>
@@ -124,7 +119,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Sinh viên đăng ký</CardTitle>
           </CardHeader>
@@ -140,7 +135,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Check-in hôm nay</CardTitle>
           </CardHeader>
@@ -156,7 +151,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Sự kiện hoạt động</CardTitle>
           </CardHeader>
@@ -174,12 +169,11 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Điều phối sự kiện</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Tạo lịch mới, cập nhật địa điểm và theo dõi trạng thái từng sự kiện.</p>
+          <CardContent>
             <Button className="w-full justify-between" variant="outline" onClick={() => setLocation("/events")}>
               Mở quản lý sự kiện
               <FolderKanban className="h-4 w-4" />
@@ -187,12 +181,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Quản lý danh sách tham dự</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Quản lý sinh viên, import/export Excel và phân quyền cộng tác viên theo sự kiện.</p>
+          <CardContent>
             <Button className="w-full justify-between" variant="outline" onClick={() => setLocation("/students")}>
               Mở quản lý sinh viên
               <Users className="h-4 w-4" />
@@ -200,12 +193,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Vận hành check-in trực tiếp</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Quét QR theo thời gian thực, theo dõi kết quả tức thì và lịch sử check-in.</p>
+          <CardContent>
             <Button className="w-full justify-between" variant="outline" onClick={() => setLocation("/checkin")}>
               Mở màn hình check-in
               <QrCode className="h-4 w-4" />
@@ -215,7 +207,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <Card className="shadow-sm xl:col-span-2">
+        <Card className="xl:col-span-2">
           <CardHeader className="border-b">
             <CardTitle className="text-lg">Xu hướng check-in 6 ngày gần nhất</CardTitle>
           </CardHeader>
@@ -231,7 +223,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="border-b">
             <CardTitle className="text-lg">Sự kiện gần đây</CardTitle>
           </CardHeader>
@@ -280,7 +272,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="border-b">
             <CardTitle className="text-lg">Nhịp vận hành</CardTitle>
           </CardHeader>

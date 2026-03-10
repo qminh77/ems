@@ -22,7 +22,6 @@ import {
   BarChart3,
   Calendar,
   CalendarClock,
-  ChevronRight,
   CirclePlus,
   LayoutGrid,
   LogOut,
@@ -69,11 +68,7 @@ export default function AppSidebar() {
       <SidebarHeader className="gap-3 p-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              className="h-11 data-[active=true]:bg-sidebar-accent"
-              isActive
-              onClick={() => setLocation("/")}
-            >
+              <SidebarMenuButton className="h-11" isActive onClick={() => setLocation("/")}>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg border bg-background">
                 {systemSettings?.logoUrl ? (
                   <img src={systemSettings.logoUrl} alt="logo" className="h-5 w-5 rounded object-contain" />
@@ -81,12 +76,12 @@ export default function AppSidebar() {
                   <CalendarClock className="h-4 w-4" />
                 )}
               </div>
-              <div className="grid text-left">
-                <span className="text-sm font-semibold leading-none">{systemSettings?.systemName || "EMS Platform"}</span>
-                <span className="text-xs text-muted-foreground">Operations workspace</span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+                <div className="grid text-left">
+                  <span className="text-sm font-semibold leading-none">{systemSettings?.systemName || "EMS Platform"}</span>
+                  <span className="text-xs text-muted-foreground">Workspace</span>
+                </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
         </SidebarMenu>
 
         <Button
@@ -111,13 +106,12 @@ export default function AppSidebar() {
                     isActive={isActive(item.href)}
                     tooltip={item.label}
                     onClick={() => setLocation(item.href)}
-                  >
-                    <item.icon />
-                    <span>{item.label}</span>
-                    <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-50 group-data-[collapsible=icon]:hidden" />
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               {isAdmin && (
                 <SidebarMenuItem key="/admin">
                   <SidebarMenuButton
@@ -127,7 +121,6 @@ export default function AppSidebar() {
                   >
                     <Settings />
                     <span>AdminCP</span>
-                    <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-50 group-data-[collapsible=icon]:hidden" />
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
@@ -155,7 +148,7 @@ export default function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-2">
-        <div className="rounded-lg border bg-sidebar p-2">
+        <div className="rounded-lg border bg-background p-2">
           <div className="flex items-center gap-2">
             <Avatar className="h-8 w-8 rounded-lg">
               <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>

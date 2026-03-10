@@ -122,11 +122,8 @@ export default function Checkin() {
     <div className="page-shell" data-testid="page-checkin">
       {realtimeUpdate && <RealTimeIndicator {...realtimeUpdate} />}
 
-      <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:p-6">
-        <div>
-          <h1 className="page-title">Check-in Operations</h1>
-          <p className="page-description">Màn hình vận hành trực tiếp cho check-in/check-out bằng QR hoặc nhập mã thủ công.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="page-title">Check-in</h1>
         <Badge variant={isConnected ? "default" : "secondary"} className="w-fit gap-1.5">
           {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
           {isConnected ? "Realtime đang bật" : "Realtime tạm ngắt"}
@@ -134,7 +131,7 @@ export default function Checkin() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card className="shadow-sm">
+        <Card>
           <CardContent className="p-5">
             <p className="text-sm text-muted-foreground">Tổng check-in hôm nay</p>
             <div className="mt-3 flex items-end justify-between">
@@ -143,7 +140,7 @@ export default function Checkin() {
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card>
           <CardContent className="p-5">
             <p className="text-sm text-muted-foreground">Check-out hôm nay</p>
             <div className="mt-3 flex items-end justify-between">
@@ -152,7 +149,7 @@ export default function Checkin() {
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card>
           <CardContent className="p-5">
             <p className="text-sm text-muted-foreground">Đang tham dự</p>
             <div className="mt-3 flex items-end justify-between">
@@ -164,7 +161,7 @@ export default function Checkin() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1.35fr_1fr_1fr]">
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="border-b">
             <CardTitle className="text-lg">Trạm quét QR</CardTitle>
           </CardHeader>
@@ -198,7 +195,6 @@ export default function Checkin() {
               </TabsContent>
 
               <TabsContent value="manual" className="space-y-3">
-                <p className="text-sm text-muted-foreground">Dùng cho trường hợp camera không khả dụng hoặc cần nhập nhanh từ thiết bị khác.</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
                     type="text"
@@ -230,7 +226,7 @@ export default function Checkin() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="border-b">
             <CardTitle className="text-lg">Kết quả gần nhất</CardTitle>
           </CardHeader>
@@ -276,7 +272,7 @@ export default function Checkin() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="border-b">
             <CardTitle className="text-lg">Activity Feed</CardTitle>
           </CardHeader>

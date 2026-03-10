@@ -22,7 +22,7 @@ export function StudentsToolbar({
   onAddStudent,
 }: StudentsToolbarProps) {
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardContent className="flex flex-wrap items-center gap-2 pt-5 sm:pt-6">
         <Button
           onClick={onImport}

@@ -22,7 +22,7 @@ export default function MobileNavigation() {
 
   return (
     <div className="fixed inset-x-0 bottom-3 z-40 px-3 md:hidden safe-area-pb" data-testid="mobile-navigation">
-      <div className="mx-auto max-w-md rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="mx-auto max-w-md rounded-xl border bg-background p-1.5">
         <div className={cn("grid h-14 gap-1", user?.isAdmin ? "grid-cols-5" : "grid-cols-4")}>
         {navigation.map((item) => (
           <Button

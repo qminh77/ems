@@ -75,7 +75,7 @@ export default function Students() {
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (attendeeIds: number[]) => {
-      const response = await apiRequest("DELETE", "/api/attendees/bulk", { attendeeIds });
+      const response = await apiRequest("POST", "/api/attendees/bulk-delete", { attendeeIds });
       return response.json();
     },
     onSuccess: (result) => {
@@ -85,8 +85,9 @@ export default function Students() {
       setSelectAll(false);
       toast({ title: "Thành công", description: result.message });
     },
-    onError: () => {
-      toast({ title: "Lỗi", description: "Không thể xóa sinh viên đã chọn", variant: "destructive" });
+    onError: (error: Error) => {
+      const message = error.message.includes(":") ? error.message.split(":").slice(1).join(":").trim() : "Không thể xóa sinh viên đã chọn";
+      toast({ title: "Lỗi", description: message, variant: "destructive" });
     },
   });
 
@@ -317,13 +318,10 @@ export default function Students() {
   }
 
   return (
-    <div className="page-shell" data-testid="page-students">
+    <div className="page-shell min-w-0" data-testid="page-students">
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="page-title">Quản lý sinh viên</h1>
-            <p className="page-description">Theo dõi danh sách sinh viên theo từng sự kiện.</p>
-          </div>
+          <h1 className="page-title">Quản lý sinh viên</h1>
 
           <div className="w-full sm:w-[320px]">
             <Select value={selectedEventId} onValueChange={setSelectedEventId}>
@@ -361,7 +359,7 @@ export default function Students() {
       </div>
 
       {!selectedEventId ? (
-        <Card className="py-12 text-center shadow-sm" data-testid="no-event-selected">
+        <Card className="py-12 text-center" data-testid="no-event-selected">
           <CardContent>
             <Calendar className="mx-auto mb-4 h-14 w-14 text-muted-foreground" />
             <h3 className="mb-2 text-lg font-medium">Chọn sự kiện</h3>

@@ -77,7 +77,7 @@ export function StudentsListCard({
   };
 
   return (
-    <Card className="overflow-hidden shadow-sm">
+    <Card className="overflow-hidden">
       <CardHeader className="space-y-4 border-b bg-muted/30">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-1">
@@ -100,8 +100,8 @@ export function StudentsListCard({
             )}
           </div>
 
-          <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end">
-            <div className="relative w-full lg:w-80">
+          <div className="flex min-w-0 w-full flex-col gap-2 lg:w-auto lg:items-end">
+            <div className="relative w-full lg:w-80 lg:max-w-full">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
@@ -210,7 +210,7 @@ export function StudentsListCard({
               })}
             </div>
 
-            <div className="hidden max-h-[62vh] overflow-x-auto md:block">
+            <div className="hidden max-h-[62vh] min-w-0 overflow-x-auto md:block">
               <Table>
                 <TableHeader className="bg-muted/40 [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-muted/90">
                   <TableRow>

@@ -5,7 +5,7 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 export default function NotFound() {
   return (
     <div className="flex min-h-svh w-full items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-lg shadow-sm">
+      <Card className="w-full max-w-lg">
         <CardHeader className="border-b pb-4">
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg border bg-muted/40">
             <AlertCircle className="h-5 w-5" />

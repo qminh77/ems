@@ -25,12 +25,12 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { usePublicSystemSettings } from "@/hooks/useSystemSettings";
 import { Bell, CalendarPlus, Search, Wifi, WifiOff } from "lucide-react";
 
-const pageMeta: Record<string, { title: string; subtitle: string }> = {
-  "/": { title: "Dashboard", subtitle: "Theo dõi toàn bộ vận hành sự kiện" },
-  "/events": { title: "Sự kiện", subtitle: "Quản lý kế hoạch và trạng thái sự kiện" },
-  "/students": { title: "Sinh viên", subtitle: "Danh sách tham gia, import/export và phân quyền" },
-  "/checkin": { title: "Check-in", subtitle: "Điểm danh trực tiếp bằng QR" },
-  "/admin": { title: "AdminCP", subtitle: "Quản trị cấu hình hệ thống và phân quyền tài khoản" },
+const pageMeta: Record<string, { title: string }> = {
+  "/": { title: "Dashboard" },
+  "/events": { title: "Sự kiện" },
+  "/students": { title: "Sinh viên" },
+  "/checkin": { title: "Check-in" },
+  "/admin": { title: "AdminCP" },
 };
 
 export default function Navbar() {
@@ -42,14 +42,13 @@ export default function Navbar() {
 
   const currentPage = pageMeta[location] ?? {
     title: "EMS",
-    subtitle: "Event Management System",
   };
 
   const initials = user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || "U";
 
   return (
     <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" data-testid="navbar">
-      <div className="flex h-14 items-center gap-2 border-b px-3 sm:px-4">
+      <div className="flex h-14 items-center gap-2 px-3 sm:px-4">
         <SidebarTrigger className="h-8 w-8" data-testid="button-mobile-menu" />
         <Separator orientation="vertical" className="mx-1 h-5" />
 
@@ -77,7 +76,7 @@ export default function Navbar() {
           Tạo sự kiện
         </Button>
 
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Notifications">
           <Bell className="h-4 w-4" />
         </Button>
 
@@ -100,7 +99,7 @@ export default function Navbar() {
         </DropdownMenu>
       </div>
 
-      <div className="px-4 py-3 sm:px-6">
+      <div className="px-4 pb-3 sm:px-6">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>{systemSettings?.systemName || "EMS Platform"}</BreadcrumbItem>
@@ -110,7 +109,6 @@ export default function Navbar() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <p className="mt-1 text-sm text-muted-foreground">{currentPage.subtitle}</p>
       </div>
     </header>
   );

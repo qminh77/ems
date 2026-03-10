@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, GraduationCap, LogIn, ShieldCheck, UserPlus } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, LogIn, UserPlus } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { usePublicSystemSettings } from "@/hooks/useSystemSettings";
 
@@ -174,205 +174,170 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
-      <div className="grid w-full max-w-6xl overflow-hidden rounded-2xl border bg-card shadow-sm lg:grid-cols-[1.15fr_1fr]">
-        <section className="hidden border-r bg-muted/40 p-10 lg:flex lg:flex-col lg:justify-between">
-          <div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl border bg-background">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-background">
               {systemSettings?.logoUrl ? (
-                <img src={systemSettings.logoUrl} alt="logo" className="h-7 w-7 rounded object-contain" />
+                <img src={systemSettings.logoUrl} alt="logo" className="h-5 w-5 rounded object-contain" />
               ) : (
-                <GraduationCap className="h-6 w-6" />
+                <GraduationCap className="h-4 w-4" />
               )}
             </div>
-            <h1 className="mt-6 text-3xl font-semibold tracking-tight">{systemSettings?.systemName || "EMS Platform"}</h1>
-            <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-              {systemSettings?.systemDescription || "Nền tảng quản lý sự kiện nội bộ tập trung, tối ưu quy trình check-in và theo dõi dữ liệu người tham gia theo thời gian thực."}
-            </p>
+            <CardTitle className="text-xl">{systemSettings?.systemName || "EMS Platform"}</CardTitle>
           </div>
+          <CardDescription>Đăng nhập hoặc đăng ký tài khoản nội bộ.</CardDescription>
+        </CardHeader>
 
-          <div className="space-y-3">
-            <div className="rounded-xl border bg-background p-4">
-              <p className="text-sm font-medium">Quản lý toàn bộ sự kiện trong một giao diện duy nhất</p>
-            </div>
-            <div className="rounded-xl border bg-background p-4">
-              <p className="text-sm font-medium">Theo dõi sinh viên và cộng tác viên theo từng sự kiện</p>
-            </div>
-            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-              <ShieldCheck className="h-4 w-4" />
-              Xác thực bảo mật bằng tài khoản nội bộ
-            </div>
-          </div>
-        </section>
+        <CardContent>
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="mb-5 grid w-full grid-cols-2">
+              <TabsTrigger value="login">Đăng nhập</TabsTrigger>
+              <TabsTrigger value="register" disabled={!isRegistrationEnabled}>
+                Đăng ký
+              </TabsTrigger>
+            </TabsList>
 
-        <section className="p-4 sm:p-8 lg:p-10">
-          <Card className="border-0 shadow-none">
-            <CardHeader className="px-0 pb-5 pt-0 text-center sm:text-left">
-              <CardTitle className="text-2xl font-semibold tracking-tight">Đăng nhập hệ thống</CardTitle>
-              <CardDescription>Nhập thông tin để truy cập EMS hoặc tạo tài khoản mới.</CardDescription>
-            </CardHeader>
+            <TabsContent value="login" className="space-y-4">
+              <form onSubmit={handleLocalLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Email hoặc tên đăng nhập</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    value={loginData.username}
+                    onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                    disabled={isLoading}
+                    data-testid="input-username-login"
+                  />
+                </div>
 
-            <CardContent className="px-0">
-              <Tabs defaultValue="login" className="w-full">
-                <TabsList className="mb-6 grid w-full grid-cols-2">
-                  <TabsTrigger value="login" className="font-semibold">
-                    Đăng nhập
-                  </TabsTrigger>
-                  <TabsTrigger value="register" className="font-semibold" disabled={!isRegistrationEnabled}>
-                    Đăng ký mới
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="login" className="space-y-4">
-                  <form onSubmit={handleLocalLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="username">Email hoặc tên đăng nhập</Label>
-                      <Input
-                        id="username"
-                        type="text"
-                        placeholder="Nhập email hoặc tên đăng nhập"
-                        value={loginData.username}
-                        onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-                        disabled={isLoading}
-                        data-testid="input-username-login"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Mật khẩu</Label>
-                      <div className="relative">
-                        <Input
-                          id="password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Nhập mật khẩu"
-                          value={loginData.password}
-                          onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                          disabled={isLoading}
-                          className="pr-10"
-                          data-testid="input-password-login"
-                        />
-                        <Button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-2 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
-                          data-testid="button-toggle-password"
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </div>
-
-                    <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-login-local">
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Đăng nhập
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mật khẩu</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={loginData.password}
+                      onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                      disabled={isLoading}
+                      className="pr-10"
+                      data-testid="input-password-login"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+                      data-testid="button-toggle-password"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
-                  </form>
+                  </div>
+                </div>
 
-                </TabsContent>
+                <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-login-local">
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Đăng nhập
+                </Button>
+              </form>
+            </TabsContent>
 
-                <TabsContent value="register" className="space-y-4">
-                  {!isRegistrationEnabled && (
-                    <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                      Đăng ký tài khoản hiện đang tạm tắt bởi quản trị viên.
-                    </div>
-                  )}
-                  <form onSubmit={handleRegister} className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="firstName">Họ</Label>
-                        <Input
-                          id="firstName"
-                          type="text"
-                          placeholder="Nhập họ"
-                          value={registerData.firstName}
-                          onChange={(e) => setRegisterData({ ...registerData, firstName: e.target.value })}
-                          disabled={isLoading}
-                          data-testid="input-firstname"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lastName">Tên</Label>
-                        <Input
-                          id="lastName"
-                          type="text"
-                          placeholder="Nhập tên"
-                          value={registerData.lastName}
-                          onChange={(e) => setRegisterData({ ...registerData, lastName: e.target.value })}
-                          disabled={isLoading}
-                          data-testid="input-lastname"
-                        />
-                      </div>
-                    </div>
+            <TabsContent value="register" className="space-y-4">
+              {!isRegistrationEnabled && (
+                <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                  Đăng ký đang tạm tắt.
+                </div>
+              )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="example@email.com"
-                        value={registerData.email}
-                        onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                        disabled={isLoading}
-                        required
-                        data-testid="input-email-register"
-                      />
-                    </div>
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">Họ</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      value={registerData.firstName}
+                      onChange={(e) => setRegisterData({ ...registerData, firstName: e.target.value })}
+                      disabled={isLoading}
+                      data-testid="input-firstname"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Tên</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      value={registerData.lastName}
+                      onChange={(e) => setRegisterData({ ...registerData, lastName: e.target.value })}
+                      disabled={isLoading}
+                      data-testid="input-lastname"
+                    />
+                  </div>
+                </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="newUsername">Tên đăng nhập *</Label>
-                      <Input
-                        id="newUsername"
-                        type="text"
-                        placeholder="Chọn tên đăng nhập"
-                        value={registerData.username}
-                        onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
-                        disabled={isLoading}
-                        required
-                        data-testid="input-username-register"
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={registerData.email}
+                    onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                    disabled={isLoading}
+                    required
+                    data-testid="input-email-register"
+                  />
+                </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="newPassword">Mật khẩu *</Label>
-                      <Input
-                        id="newPassword"
-                        type="password"
-                        placeholder="Tạo mật khẩu"
-                        value={registerData.password}
-                        onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                        disabled={isLoading}
-                        required
-                        data-testid="input-password-register"
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newUsername">Tên đăng nhập</Label>
+                  <Input
+                    id="newUsername"
+                    type="text"
+                    value={registerData.username}
+                    onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
+                    disabled={isLoading}
+                    required
+                    data-testid="input-username-register"
+                  />
+                </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">Xác nhận mật khẩu *</Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        placeholder="Nhập lại mật khẩu"
-                        value={registerData.confirmPassword}
-                        onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                        disabled={isLoading}
-                        required
-                        data-testid="input-confirm-password"
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">Mật khẩu</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={registerData.password}
+                    onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                    disabled={isLoading}
+                    required
+                    data-testid="input-password-register"
+                  />
+                </div>
 
-                    <Button type="submit" className="w-full" disabled={isLoading || !isRegistrationEnabled} data-testid="button-register">
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Đăng ký tài khoản
-                    </Button>
-                  </form>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </section>
-      </div>
-      <p className="mt-4 text-center text-xs text-muted-foreground">{systemSettings?.footerText || "© EMS Platform"}</p>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={registerData.confirmPassword}
+                    onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                    disabled={isLoading}
+                    required
+                    data-testid="input-confirm-password"
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={isLoading || !isRegistrationEnabled} data-testid="button-register">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Đăng ký tài khoản
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }

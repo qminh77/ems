@@ -134,12 +134,9 @@ export default function AdminPage() {
 
   return (
     <div className="page-shell space-y-4" data-testid="page-admin">
-      <div>
-        <h1 className="page-title">Admin Control Panel</h1>
-        <p className="page-description">Quản trị cấu hình hệ thống và phân quyền tài khoản.</p>
-      </div>
+      <h1 className="page-title">Admin Control Panel</h1>
 
-      <Card className="shadow-sm">
+      <Card>
         <CardHeader>
           <CardTitle>Cấu hình hệ thống</CardTitle>
         </CardHeader>
@@ -196,10 +193,9 @@ export default function AdminPage() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-sm">
+      <Card>
         <CardHeader>
           <CardTitle>Quản lý tài khoản</CardTitle>
-          <CardDescription>Bật/tắt quyền tạo sự kiện, quyền admin và trạng thái hoạt động.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
