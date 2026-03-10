@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { Loader2 } from "lucide-react";
 
 const studentSchema = z.object({
   name: z.string().min(1, "Họ và tên là bắt buộc"),
@@ -126,8 +127,8 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
           {!isEditing && (
             <div>
               <Label>Sự kiện</Label>
-              <div className="mt-1 p-3 bg-gray-50 rounded-lg">
-                <p className="font-medium text-gray-900" data-testid="selected-event-display">
+              <div className="mt-1 rounded-lg border bg-muted/30 p-3">
+                <p className="font-medium" data-testid="selected-event-display">
                   {selectedEvent?.name || "Chưa chọn sự kiện"}
                 </p>
               </div>
@@ -143,7 +144,7 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               data-testid="input-student-name"
             />
             {form.formState.errors.name && (
-              <p className="text-sm text-red-600 mt-1">{form.formState.errors.name.message}</p>
+              <p className="mt-1 text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
           </div>
           
@@ -157,7 +158,7 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               disabled={isEditing}
             />
             {form.formState.errors.studentId && (
-              <p className="text-sm text-red-600 mt-1">{form.formState.errors.studentId.message}</p>
+              <p className="mt-1 text-sm text-destructive">{form.formState.errors.studentId.message}</p>
             )}
           </div>
           
@@ -171,7 +172,7 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
               data-testid="input-student-email"
             />
             {form.formState.errors.email && (
-              <p className="text-sm text-red-600 mt-1">{form.formState.errors.email.message}</p>
+              <p className="mt-1 text-sm text-destructive">{form.formState.errors.email.message}</p>
             )}
           </div>
           
@@ -211,7 +212,7 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
             >
               {mutation.isPending ? (
                 <>
-                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Đang lưu...
                 </>
               ) : (

@@ -4,6 +4,13 @@ import { Strategy as LocalStrategy } from 'passport-local';
 import type { Express } from 'express';
 import { storage } from './storage';
 import { randomUUID } from 'crypto';
+import { createRateLimiter } from './requestGuards';
+
+const authRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyPrefix: 'auth',
+});
 
 // Setup local authentication strategy
 export function setupLocalAuth(app: Express) {
@@ -42,7 +49,7 @@ export function setupLocalAuth(app: Express) {
   ));
 
   // Register route for creating new user with local auth
-  app.post('/api/register', async (req, res) => {
+  app.post('/api/register', authRateLimit, async (req, res) => {
     const { username, password, email, firstName, lastName } = req.body;
 
     if (!username || !password || !email) {
@@ -90,7 +97,7 @@ export function setupLocalAuth(app: Express) {
   });
 
   // Local login route
-  app.post('/api/login-local', (req, res, next) => {
+  app.post('/api/login-local', authRateLimit, (req, res, next) => {
     passport.authenticate('local', (err: any, user: any, info: any) => {
       if (err) {
         return res.status(500).json({ message: 'Lỗi máy chủ' });

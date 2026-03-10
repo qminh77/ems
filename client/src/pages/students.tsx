@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,13 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import StudentFormModal from "@/components/student-form-modal";
 import QRCodeModal from "@/components/qr-code-modal";
-import { Upload, Download, FileSpreadsheet, Users, QrCode, Archive, Pencil, Trash2, UserX, UsersIcon, Shield } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, Users, QrCode, Archive, Pencil, Trash2, UserX, UsersIcon, Shield, Calendar, Search, UserPlus2, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type { Event, Attendee } from "@shared/schema";
 import { CollaboratorsManager } from "@/components/collaborators-manager";
+
+type SortKey = "name" | "studentId" | "email" | "faculty" | "major" | "status";
 
 export default function Students() {
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -26,7 +29,9 @@ export default function Students() {
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [activeTab, setActiveTab] = useState<"students" | "collaborators">("students");
-  const [userRole, setUserRole] = useState<string>("");
+  const [sortBy, setSortBy] = useState<SortKey>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [isCompactRows, setIsCompactRows] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -141,13 +146,63 @@ export default function Students() {
     }
   };
 
-  const filteredAttendees = attendees.filter((attendee) =>
-    attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attendee.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attendee.studentId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attendee.faculty?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    attendee.major?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredAttendees = useMemo(
+    () =>
+      attendees.filter((attendee) =>
+        attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        attendee.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        attendee.studentId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        attendee.faculty?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        attendee.major?.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [attendees, searchQuery]
   );
+
+  const getSortValue = (attendee: Attendee, key: SortKey) => {
+    switch (key) {
+      case "name":
+        return attendee.name || "";
+      case "studentId":
+        return attendee.studentId || "";
+      case "email":
+        return attendee.email || "";
+      case "faculty":
+        return attendee.faculty || "";
+      case "major":
+        return attendee.major || "";
+      case "status":
+        return attendee.status || "pending";
+      default:
+        return "";
+    }
+  };
+
+  const sortedAttendees = useMemo(() => {
+    return [...filteredAttendees].sort((a, b) => {
+      const valueA = getSortValue(a, sortBy);
+      const valueB = getSortValue(b, sortBy);
+      const comparison = valueA.localeCompare(valueB, "vi", { numeric: true, sensitivity: "base" });
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [filteredAttendees, sortBy, sortDirection]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortBy === key) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortBy(key);
+    setSortDirection("asc");
+  };
+
+  const getSortIcon = (key: SortKey) => {
+    if (sortBy !== key) {
+      return <ArrowUpDown className="h-3.5 w-3.5" />;
+    }
+
+    return sortDirection === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />;
+  };
 
   const handleSelectStudent = (studentId: number, checked: boolean) => {
     const newSelected = new Set(selectedStudentIds);
@@ -243,11 +298,11 @@ export default function Students() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'checked_in':
-        return 'bg-secondary/10 text-secondary';
+        return 'bg-primary text-primary-foreground';
       case 'checked_out':
-        return 'bg-gray-100 text-gray-600';
+        return 'bg-muted text-muted-foreground';
       default:
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-secondary text-secondary-foreground';
     }
   };
 
@@ -266,44 +321,53 @@ export default function Students() {
 
   if (attendeesLoading) {
     return (
-      <div className="p-6" data-testid="students-loading">
+      <div className="mx-auto w-full max-w-7xl p-4 sm:p-6" data-testid="students-loading">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
-          <div className="h-64 bg-gray-200 rounded-xl"></div>
+          <div className="mb-8 h-8 w-1/4 rounded bg-muted"></div>
+          <div className="h-64 rounded-xl bg-muted"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6" data-testid="page-students">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Quản lý sinh viên</h1>
+    <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6" data-testid="page-students">
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">Quản lý sinh viên</h1>
+            <p className="mt-2 text-muted-foreground">Quản lý danh sách tham dự theo từng sự kiện.</p>
+          </div>
+
+          <div className="w-full sm:w-[320px]">
+            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <SelectTrigger data-testid="select-event-filter">
+                <SelectValue placeholder="Chọn sự kiện" />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id!.toString()}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-            <SelectTrigger className="w-64" data-testid="select-event-filter">
-              <SelectValue placeholder="Chọn sự kiện" />
-            </SelectTrigger>
-            <SelectContent>
-              {events.map((event) => (
-                <SelectItem key={event.id} value={event.id!.toString()}>
-                  {event.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-2">
+
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-2 pt-6">
             <Button
               onClick={handleDownloadTemplate}
               variant="outline"
-              className="flex items-center gap-2 border-gray-300 hover:bg-gray-50"
+              size="sm"
+              className="gap-2"
               title="Tải file mẫu Excel/CSV"
             >
               <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">File mẫu</span>
+              <span>File mẫu</span>
             </Button>
+
             <Button
               onClick={() => {
                 if (selectedEventId) {
@@ -311,13 +375,15 @@ export default function Students() {
                 }
               }}
               variant="outline"
-              className="flex items-center gap-2 border-gray-300 hover:bg-gray-50"
+              size="sm"
+              className="gap-2"
               disabled={!selectedEventId || attendees.length === 0}
               title="Xuất danh sách kèm mã QR"
             >
               <FileSpreadsheet className="h-4 w-4" />
-              <span className="hidden sm:inline">Xuất Excel</span>
+              <span>Xuất Excel</span>
             </Button>
+
             <Button
               onClick={() => {
                 if (selectedEventId) {
@@ -325,24 +391,28 @@ export default function Students() {
                 }
               }}
               variant="outline"
-              className="flex items-center gap-2 border-blue-300 hover:bg-blue-50 text-blue-700 border-2"
+              size="sm"
+              className="gap-2"
               disabled={!selectedEventId || attendees.length === 0}
               title="Tải file ZIP chứa Excel và tất cả ảnh QR"
               data-testid="button-export-zip"
             >
               <Archive className="h-4 w-4" />
-              <span className="hidden sm:inline">Tải QR ZIP</span>
+              <span>Tải QR ZIP</span>
             </Button>
+
             <Button
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
-              className="flex items-center gap-2 border-gray-300 hover:bg-gray-50"
+              size="sm"
+              className="gap-2"
               disabled={!selectedEventId || isImporting}
               title="Nhập danh sách từ file Excel/CSV"
             >
               <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">{isImporting ? 'Đang xử lý...' : 'Import Excel/CSV'}</span>
+              <span>{isImporting ? "Đang xử lý..." : "Import Excel/CSV"}</span>
             </Button>
+
             <input
               ref={fileInputRef}
               type="file"
@@ -350,61 +420,62 @@ export default function Students() {
               onChange={handleImportFile}
               className="hidden"
             />
-            <Button 
+
+            <Button
               onClick={handleAddStudent}
-              className="bg-primary hover:bg-blue-700 text-white px-4 sm:px-6 py-3 rounded-lg font-semibold flex items-center gap-2 shadow-lg transition-all hover:shadow-xl"
+              size="sm"
+              className="gap-2 sm:ml-auto"
               disabled={!selectedEventId}
               data-testid="button-add-student"
             >
-              <Users className="h-5 w-5" />
-              <span className="hidden sm:inline">Thêm sinh viên</span>
-              <span className="sm:hidden">Thêm</span>
+              <Users className="h-4 w-4" />
+              <span>Thêm sinh viên</span>
             </Button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {!selectedEventId ? (
         <Card className="text-center py-12" data-testid="no-event-selected">
           <CardContent>
-            <i className="fas fa-calendar-alt text-gray-400 text-6xl mb-4"></i>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Chọn sự kiện</h3>
-            <p className="text-gray-600">Vui lòng chọn một sự kiện để xem danh sách sinh viên</p>
+            <Calendar className="mx-auto mb-4 h-14 w-14 text-muted-foreground" />
+            <h3 className="mb-2 text-lg font-medium">Chọn sự kiện</h3>
+            <p className="text-muted-foreground">Vui lòng chọn một sự kiện để xem danh sách sinh viên</p>
           </CardContent>
         </Card>
       ) : (
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "students" | "collaborators")}>
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="students" className="flex items-center gap-2">
+          <TabsList className="mb-4 grid h-auto w-full grid-cols-2">
+            <TabsTrigger value="students" className="flex items-center gap-2 py-2.5">
               <Users className="h-4 w-4" />
               Sinh viên
             </TabsTrigger>
-            <TabsTrigger value="collaborators" className="flex items-center gap-2">
+            <TabsTrigger value="collaborators" className="flex items-center gap-2 py-2.5">
               <UsersIcon className="h-4 w-4" />
               Cộng tác viên
-              {eventAccess && (eventAccess as any)?.role === 'owner' && <Shield className="h-4 w-4 ml-1" />}
+              {(eventAccess as any)?.role === 'owner' && <Shield className="ml-1 hidden h-4 w-4 sm:inline-block" />}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="students">
-            <Card className="border border-gray-200 shadow-lg overflow-hidden">
-          <CardHeader className="border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Danh sách sinh viên</h2>
+            <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-muted/30">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold">Danh sách sinh viên</h2>
                 {selectedEvent && (
-                  <p className="text-sm text-gray-600 mt-1" data-testid="selected-event-name">
+                  <p className="text-sm text-muted-foreground" data-testid="selected-event-name">
                     Sự kiện: {selectedEvent.name}
                   </p>
                 )}
                 {selectedStudentIds.size > 0 && (
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="text-sm text-blue-600 font-medium">
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-medium text-foreground">
                       Đã chọn {selectedStudentIds.size} sinh viên
                     </span>
                     <Button
                       size="sm"
-                      variant="destructive"
+                      variant="outline"
                       onClick={handleBulkDelete}
                       disabled={bulkDeleteMutation.isPending}
                       className="flex items-center gap-2"
@@ -416,17 +487,44 @@ export default function Students() {
                   </div>
                 )}
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="relative">
+              <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end">
+                <div className="relative w-full lg:w-72">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="text"
                     placeholder="Tìm kiếm sinh viên..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-64"
+                    className="pl-10"
                     data-testid="input-search-students"
                   />
-                  <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary" className="font-normal">
+                    {sortedAttendees.length}/{attendees.length} sinh viên
+                  </Badge>
+
+                  <div className="flex items-center rounded-md border bg-background p-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isCompactRows ? "ghost" : "secondary"}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setIsCompactRows(false)}
+                    >
+                      Thoáng
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isCompactRows ? "secondary" : "ghost"}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setIsCompactRows(true)}
+                    >
+                      Gọn
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -435,26 +533,26 @@ export default function Students() {
           <CardContent className="p-0">
             {filteredAttendees.length === 0 ? (
               <div className="text-center py-12" data-testid="no-students">
-                <i className="fas fa-users text-gray-400 text-6xl mb-4"></i>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <Users className="mx-auto mb-4 h-14 w-14 text-muted-foreground" />
+                <h3 className="mb-2 text-lg font-medium">
                   {searchQuery ? "Không tìm thấy sinh viên" : "Chưa có sinh viên nào"}
                 </h3>
-                <p className="text-gray-600 mb-6">
+                <p className="mb-6 text-muted-foreground">
                   {searchQuery ? "Thử tìm kiếm với từ khóa khác" : "Hãy thêm sinh viên đầu tiên cho sự kiện này"}
                 </p>
                 {!searchQuery && (
                   <Button onClick={handleAddStudent} data-testid="button-add-first-student">
-                    <i className="fas fa-plus mr-2"></i>
+                    <UserPlus2 className="mr-2 h-4 w-4" />
                     Thêm sinh viên đầu tiên
                   </Button>
                 )}
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-100 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <Table containerClassName="max-h-[62vh]">
+                  <TableHeader className="bg-muted/40 [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-muted/90">
+                    <TableRow>
+                      <TableHead className="px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground">
                         <div className="flex items-center gap-3">
                           <Checkbox
                             checked={selectAll}
@@ -462,115 +560,164 @@ export default function Students() {
                             disabled={filteredAttendees.length === 0}
                             data-testid="checkbox-select-all"
                           />
-                          <span>Tên</span>
+                          <button
+                            type="button"
+                            onClick={() => handleSort("name")}
+                            className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+                          >
+                            <span>Tên</span>
+                            {getSortIcon("name")}
+                          </button>
                         </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        MSSV/MSNV
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Khoa
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ngành
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Trạng thái
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      </TableHead>
+                      <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground md:table-cell">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("studentId")}
+                          className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+                        >
+                          <span>MSSV/MSNV</span>
+                          {getSortIcon("studentId")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground lg:table-cell">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("email")}
+                          className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+                        >
+                          <span>Email</span>
+                          {getSortIcon("email")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground xl:table-cell">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("faculty")}
+                          className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+                        >
+                          <span>Khoa</span>
+                          {getSortIcon("faculty")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground xl:table-cell">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("major")}
+                          className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+                        >
+                          <span>Ngành</span>
+                          {getSortIcon("major")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("status")}
+                          className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+                        >
+                          <span>Trạng thái</span>
+                          {getSortIcon("status")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="px-4 py-3 text-right text-xs uppercase tracking-wider text-muted-foreground">
                         Thao tác
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredAttendees.map((student, index) => {
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedAttendees.map((student, index) => {
                       const isSelected = selectedStudentIds.has(student.id!);
                       return (
-                        <tr 
+                        <TableRow
                           key={student.id} 
-                          className={`hover:bg-gray-50 transition-colors ${
-                            isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                          className={`transition-colors hover:bg-muted/40 ${
+                            isSelected ? 'bg-muted' : 'even:bg-muted/20'
                           }`} 
                           data-testid={`student-row-${index}`}
                         >
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <TableCell className={`whitespace-nowrap px-4 ${isCompactRows ? "py-2" : "py-3"}`}>
                             <div className="flex items-center gap-3">
                               <Checkbox
                                 checked={isSelected}
                                 onCheckedChange={(checked) => handleSelectStudent(student.id!, checked as boolean)}
                                 data-testid={`checkbox-student-${index}`}
                               />
-                              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                <span className="text-primary font-medium text-sm" data-testid={`student-initials-${index}`}>
+                              <div className={`flex items-center justify-center rounded-full border bg-muted ${isCompactRows ? "h-8 w-8" : "h-10 w-10"}`}>
+                                <span className="text-sm font-medium" data-testid={`student-initials-${index}`}>
                                   {student.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                 </span>
                               </div>
                               <div className="ml-1">
-                                <div className="text-sm font-medium text-gray-900" data-testid={`student-name-${index}`}>
+                                <div className="text-sm font-medium" data-testid={`student-name-${index}`}>
                                   {student.name}
+                                </div>
+                                <div className="mt-0.5 text-xs text-muted-foreground md:hidden">
+                                  {student.studentId || "—"}
+                                  {student.email ? ` • ${student.email}` : ""}
                                 </div>
                               </div>
                             </div>
-                          </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`student-id-${index}`}>
+                          </TableCell>
+                        <TableCell className={`hidden whitespace-nowrap px-4 text-sm md:table-cell ${isCompactRows ? "py-2" : "py-3"}`} data-testid={`student-id-${index}`}>
                           {student.studentId || "—"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" data-testid={`student-email-2-${index}`}>
+                        </TableCell>
+                        <TableCell className={`hidden whitespace-nowrap px-4 text-sm text-muted-foreground lg:table-cell ${isCompactRows ? "py-2" : "py-3"}`} data-testid={`student-email-2-${index}`}>
                           {student.email || "—"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`student-faculty-${index}`}>
+                        </TableCell>
+                        <TableCell className={`hidden whitespace-nowrap px-4 text-sm xl:table-cell ${isCompactRows ? "py-2" : "py-3"}`} data-testid={`student-faculty-${index}`}>
                           {student.faculty || "—"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`student-major-${index}`}>
+                        </TableCell>
+                        <TableCell className={`hidden whitespace-nowrap px-4 text-sm xl:table-cell ${isCompactRows ? "py-2" : "py-3"}`} data-testid={`student-major-${index}`}>
                           {student.major || "—"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className={`whitespace-nowrap px-4 ${isCompactRows ? "py-2" : "py-3"}`}>
                           <Badge className={getStatusColor(student.status || 'pending')} data-testid={`student-status-${index}`}>
                             {getStatusText(student.status || 'pending')}
                           </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        </TableCell>
+                        <TableCell className={`whitespace-nowrap px-4 text-right text-sm font-medium ${isCompactRows ? "py-2" : "py-3"}`}>
                           <div className="flex items-center justify-end gap-1">
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="ghost"
                               onClick={() => handleShowQR(student)}
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
                               title="Hiển thị mã QR"
                               data-testid={`button-show-qr-${index}`}
                             >
                               <QrCode className="h-4 w-4" />
                             </Button>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="ghost"
                               onClick={() => handleEditStudent(student)}
-                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
                               title="Chỉnh sửa"
                               data-testid={`button-edit-student-${index}`}
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="ghost"
                               onClick={() => student.id && handleDeleteStudent(student.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
                               title="Xóa"
                               data-testid={`button-delete-student-${index}`}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
-                        </td>
-                        </tr>
+                        </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                  <TableCaption>
+                    Hiển thị {sortedAttendees.length} trên tổng {attendees.length} sinh viên
+                  </TableCaption>
+                </Table>
               </div>
             )}
           </CardContent>

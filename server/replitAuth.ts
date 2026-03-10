@@ -8,9 +8,7 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
-}
+const hasReplitAuthConfig = Boolean(process.env.REPLIT_DOMAINS && process.env.REPL_ID);
 
 const getOidcConfig = memoize(
   async () => {
@@ -32,13 +30,14 @@ export function getSession() {
     tableName: "sessions",
   });
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: process.env.SESSION_SECRET || "dev-session-secret",
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: sessionTtl,
     },
   });
@@ -72,6 +71,25 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+  if (!hasReplitAuthConfig) {
+    app.get("/api/login", (_req, res) => {
+      res.status(400).json({ message: "Replit OAuth is not configured" });
+    });
+
+    app.get("/api/logout", (req, res) => {
+      req.logout(() => {
+        req.session.destroy(() => {
+          res.redirect("/");
+        });
+      });
+    });
+
+    return;
+  }
+
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
@@ -97,9 +115,6 @@ export async function setupAuth(app: Express) {
     );
     passport.use(strategy);
   }
-
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {

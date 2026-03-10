@@ -55,6 +55,14 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
 
   if (!student) return null;
 
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
   const handleDownload = () => {
     if (qrCodeUrl) {
       const link = document.createElement('a');
@@ -69,10 +77,16 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     if (printWindow && qrCodeUrl) {
+      const safeName = escapeHtml(student.name || "");
+      const safeStudentId = escapeHtml(student.studentId || "—");
+      const safeEmail = escapeHtml(student.email || "—");
+      const safeFaculty = escapeHtml(student.faculty || "—");
+      const safeMajor = escapeHtml(student.major || "—");
+
       printWindow.document.write(`
         <html>
           <head>
-            <title>QR Code - ${student.name}</title>
+            <title>QR Code - ${safeName}</title>
             <style>
               body { 
                 font-family: Arial, sans-serif; 
@@ -95,12 +109,12 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
           </head>
           <body>
             <div class="qr-container">
-              <h2>${student.name}</h2>
+              <h2>${safeName}</h2>
               <div class="info">
-                <p><strong>MSSV/MSNV:</strong> ${student.studentId || "—"}</p>
-                <p><strong>Email:</strong> ${student.email || "—"}</p>
-                <p><strong>Khoa:</strong> ${student.faculty || "—"}</p>
-                <p><strong>Ngành:</strong> ${student.major || "—"}</p>
+                <p><strong>MSSV/MSNV:</strong> ${safeStudentId}</p>
+                <p><strong>Email:</strong> ${safeEmail}</p>
+                <p><strong>Khoa:</strong> ${safeFaculty}</p>
+                <p><strong>Ngành:</strong> ${safeMajor}</p>
               </div>
               <img src="${qrCodeUrl}" alt="QR Code" />
             </div>
@@ -121,19 +135,19 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
         
         <div className="text-center">
           <div className="mb-6">
-            <h3 className="font-semibold text-gray-900 mb-2" data-testid="qr-student-name">
+            <h3 className="mb-2 font-semibold" data-testid="qr-student-name">
               {student.name}
             </h3>
-            <p className="text-sm text-gray-600" data-testid="qr-student-id">
+            <p className="text-sm text-muted-foreground" data-testid="qr-student-id">
               MSSV/MSNV: {student.studentId || "—"}
             </p>
-            <p className="text-sm text-gray-600" data-testid="qr-student-email">
+            <p className="text-sm text-muted-foreground" data-testid="qr-student-email">
               Email: {student.email || "—"}
             </p>
-            <p className="text-sm text-gray-600" data-testid="qr-student-faculty">
+            <p className="text-sm text-muted-foreground" data-testid="qr-student-faculty">
               Khoa: {student.faculty || "—"}
             </p>
-            <p className="text-sm text-gray-600" data-testid="qr-student-major">
+            <p className="text-sm text-muted-foreground" data-testid="qr-student-major">
               Ngành: {student.major || "—"}
             </p>
           </div>
@@ -141,8 +155,8 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
           {/* QR Code Display */}
           <div className="flex justify-center mb-6">
             {loading ? (
-              <div className="w-64 h-64 border-2 border-gray-200 rounded-lg flex items-center justify-center bg-gray-50">
-                <div className="text-center text-gray-500">
+              <div className="flex h-64 w-64 items-center justify-center rounded-lg border bg-muted/30">
+                <div className="text-center text-muted-foreground">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                   <p className="text-sm">Đang tải mã QR...</p>
                 </div>
@@ -151,12 +165,12 @@ export default function QRCodeModal({ isOpen, onClose, student }: QRCodeModalPro
               <img 
                 src={qrCodeUrl} 
                 alt="QR Code" 
-                className="border-2 border-gray-300 rounded-lg w-64 h-64 object-contain bg-white p-2"
+                className="h-64 w-64 rounded-lg border object-contain bg-background p-2"
                 data-testid="qr-code-image"
               />
             ) : (
-              <div className="w-64 h-64 border-2 border-gray-200 rounded-lg flex items-center justify-center bg-gray-100">
-                <div className="text-center text-gray-500">
+              <div className="flex h-64 w-64 items-center justify-center rounded-lg border bg-muted/30">
+                <div className="text-center text-muted-foreground">
                   <QrCode className="h-16 w-16 mb-2 mx-auto" />
                   <p className="text-sm">Mã QR không khả dụng</p>
                 </div>

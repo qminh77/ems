@@ -1,13 +1,15 @@
 import { useLocation } from "wouter";
+import { BarChart3, Calendar, QrCode, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function MobileNavigation() {
   const [location, setLocation] = useLocation();
 
   const navigation = [
-    { name: "Tổng quan", href: "/", icon: "fas fa-chart-bar", page: "/" },
-    { name: "Sự kiện", href: "/events", icon: "fas fa-calendar-alt", page: "/events" },
-    { name: "Sinh viên", href: "/students", icon: "fas fa-users", page: "/students" },
-    { name: "Check-in", href: "/checkin", icon: "fas fa-qrcode", page: "/checkin" },
+    { name: "Tổng quan", href: "/", icon: BarChart3, page: "/" },
+    { name: "Sự kiện", href: "/events", icon: Calendar, page: "/events" },
+    { name: "Sinh viên", href: "/students", icon: Users, page: "/students" },
+    { name: "Check-in", href: "/checkin", icon: QrCode, page: "/checkin" },
   ];
 
   const isActive = (page: string) => {
@@ -15,22 +17,23 @@ export default function MobileNavigation() {
   };
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-pb" data-testid="mobile-navigation">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background lg:hidden safe-area-pb" data-testid="mobile-navigation">
       <div className="grid grid-cols-4 h-16">
         {navigation.map((item) => (
-          <button
+          <Button
             key={item.page}
             onClick={() => setLocation(item.href)}
-            className={`flex flex-col items-center justify-center space-y-1 transition-colors ${
+            variant="ghost"
+            className={`h-auto rounded-none flex flex-col items-center justify-center space-y-1 transition-colors ${
               isActive(item.page) 
-                ? 'text-primary bg-primary/5' 
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
             data-testid={`mobile-nav-${item.page.replace('/', '') || 'dashboard'}`}
           >
-            <i className={`${item.icon} text-sm`}></i>
+            <item.icon className="h-4 w-4" />
             <span className="text-xs font-medium">{item.name}</span>
-          </button>
+          </Button>
         ))}
       </div>
     </div>

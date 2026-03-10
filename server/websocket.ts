@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { type Server } from 'http';
-import { parse } from 'url';
-import { storage } from './storage';
+import { type IncomingMessage, type Server } from 'http';
+import { type Socket } from 'net';
+import { randomUUID } from 'crypto';
 
 interface WSClient {
   ws: WebSocket;
@@ -13,29 +13,65 @@ class WebSocketManager {
   private wss: WebSocketServer | null = null;
   private clients: Map<string, WSClient> = new Map();
   private pingInterval: NodeJS.Timeout | null = null;
+  private authTokens: Map<string, { userId: string; expiresAt: number }> = new Map();
+  private server: Server | null = null;
+  private upgradeHandler: ((request: IncomingMessage, socket: Socket, head: Buffer) => void) | null = null;
+
+  issueConnectionToken(userId: string, ttlMs: number = 60_000): string {
+    const token = randomUUID();
+    this.authTokens.set(token, {
+      userId,
+      expiresAt: Date.now() + ttlMs,
+    });
+    return token;
+  }
+
+  private consumeConnectionToken(token?: string): string | null {
+    if (!token) return null;
+
+    const entry = this.authTokens.get(token);
+    if (!entry) return null;
+
+    this.authTokens.delete(token);
+    if (Date.now() > entry.expiresAt) {
+      return null;
+    }
+
+    return entry.userId;
+  }
 
   initialize(server: Server) {
-    this.wss = new WebSocketServer({ 
-      server,
-      path: '/ws'
-    });
+    if (this.wss) {
+      return;
+    }
+
+    this.server = server;
+    this.wss = new WebSocketServer({ noServer: true });
+
+    this.upgradeHandler = (request, socket, head) => {
+      const requestUrl = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+      const pathname = requestUrl.pathname;
+      if (pathname !== '/ws') {
+        return;
+      }
+
+      this.wss?.handleUpgrade(request, socket, head, (ws) => {
+        this.wss?.emit('connection', ws, request);
+      });
+    };
+
+    server.on('upgrade', this.upgradeHandler);
 
     this.wss.on('connection', async (ws: WebSocket, request) => {
       const clientId = this.generateClientId();
       
-      // Parse userId from query params
-      const url = parse(request.url || '', true);
-      const userId = url.query.userId as string;
+      // Parse one-time auth token from query params
+      const requestUrl = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+      const token = requestUrl.searchParams.get('token') || undefined;
+      const userId = this.consumeConnectionToken(token);
       
       if (!userId) {
-        ws.close(1008, 'User ID required');
-        return;
-      }
-
-      // Verify user exists
-      const user = await storage.getUser(userId);
-      if (!user) {
-        ws.close(1008, 'Invalid user');
+        ws.close(1008, 'Invalid or expired token');
         return;
       }
 
@@ -89,6 +125,13 @@ class WebSocketManager {
 
   private startPingInterval() {
     this.pingInterval = setInterval(() => {
+      const now = Date.now();
+      this.authTokens.forEach((entry, token) => {
+        if (now > entry.expiresAt) {
+          this.authTokens.delete(token);
+        }
+      });
+
       this.clients.forEach((client, clientId) => {
         if (!client.isAlive) {
           client.ws.terminate();
@@ -184,6 +227,13 @@ class WebSocketManager {
       this.wss.close();
       this.wss = null;
     }
+
+    if (this.server && this.upgradeHandler) {
+      this.server.off('upgrade', this.upgradeHandler);
+    }
+
+    this.server = null;
+    this.upgradeHandler = null;
   }
 }
 

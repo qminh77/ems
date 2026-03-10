@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import jsQR from "jsqr";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, CameraOff, Upload, QrCode } from "lucide-react";
+import { Camera, CameraOff, Clock3, QrCode, Upload } from "lucide-react";
 
 interface QRScannerProps {
   active: boolean;
@@ -141,7 +141,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
                     console.log("Second manual play successful");
                     // Force ready after successful play
                     setTimeout(() => {
-                      if (!cameraReady && videoRef.current?.readyState >= 2) {
+                      if (!cameraReady && (videoRef.current?.readyState ?? 0) >= 2) {
                         console.log("Force setting camera ready after successful play");
                         handleVideoReady();
                       }
@@ -399,9 +399,9 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
     return (
       <Card className="text-center py-8">
         <CardContent>
-          <QrCode className="h-12 w-12 text-red-500 mb-4 mx-auto" />
-          <p className="text-gray-600 font-medium">Camera không khả dụng</p>
-          <p className="text-sm text-gray-500 mt-2">Vui lòng sử dụng nhập thủ công hoặc tải ảnh QR</p>
+          <QrCode className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+          <p className="font-medium">Camera không khả dụng</p>
+          <p className="mt-2 text-sm text-muted-foreground">Vui lòng sử dụng nhập thủ công hoặc tải ảnh QR</p>
         </CardContent>
       </Card>
     );
@@ -433,26 +433,26 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
                 <div className="absolute inset-0 bg-black bg-opacity-40">
                   {/* Scanning Frame */}
                   <div className="absolute inset-12 border-2 border-white rounded-lg">
-                    <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
-                    <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
-                    <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
-                    <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg"></div>
+                    <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg"></div>
+                    <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-lg"></div>
+                    <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg"></div>
+                    <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg"></div>
                   </div>
                   
                   {/* Scanning Line Animation */}
                   <div className="absolute inset-12">
-                    <div className="h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent animate-scan"></div>
+                    <div className="h-0.5 bg-white/90 animate-scan"></div>
                   </div>
                 </div>
                 
                 {/* Status Text */}
                 <div className="absolute bottom-4 left-0 right-0 text-center">
-                  <p className={`text-white px-4 py-2 rounded-full text-sm inline-block ${
-                    isInCooldown 
-                      ? 'bg-orange-500 bg-opacity-90' 
-                      : 'bg-black bg-opacity-60'
+                  <p className={`inline-block rounded-full px-4 py-2 text-sm ${
+                    isInCooldown
+                      ? 'bg-white/90 text-black'
+                      : 'bg-black/60 text-white'
                   }`}>
-                    {isInCooldown && <i className="fas fa-clock mr-2 animate-pulse"></i>}
+                    {isInCooldown && <Clock3 className="mr-2 inline h-3 w-3 animate-pulse" />}
                     {scanningStatus}
                   </p>
                 </div>
@@ -470,11 +470,11 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
             )}
           </>
         ) : (
-          <div className="flex items-center justify-center h-full bg-gray-900">
-            <div className="text-center text-gray-300">
+          <div className="flex h-full items-center justify-center bg-black">
+            <div className="text-center text-white/80">
               <QrCode className="h-16 w-16 mb-4 mx-auto opacity-50" />
               <p className="text-lg">Nhấn nút bên dưới để bật camera</p>
-              <p className="text-sm opacity-75 mt-2">Hoặc tải lên ảnh có mã QR</p>
+              <p className="mt-2 text-sm opacity-75">Hoặc tải lên ảnh có mã QR</p>
             </div>
           </div>
         )}
@@ -482,8 +482,8 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-red-600 text-sm text-center">{error}</p>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+          <p className="text-center text-sm text-destructive">{error}</p>
         </div>
       )}
 
@@ -512,7 +512,7 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
         ) : (
           <Button
             onClick={onDeactivate}
-            variant="destructive"
+            variant="outline"
             className="flex items-center gap-2"
             data-testid="button-stop-camera"
           >
@@ -533,16 +533,16 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       />
 
       {/* Scanner Tips */}
-      <div className="text-center text-sm text-gray-500 space-y-1">
-        <p>💡 Giữ mã QR trong khung vuông để quét tốt nhất</p>
+      <div className="space-y-1 text-center text-sm text-muted-foreground">
+        <p>Giữ mã QR trong khung vuông để quét tốt nhất</p>
         {active && cameraReady && (
           <>
-            <p className="text-primary font-medium animate-pulse">🔍 Đang tìm mã QR...</p>
-            <p className="text-xs">Camera đang hoạt động - Di chuyển mã QR vào khung hình</p>
+            <p className="animate-pulse font-medium text-foreground">Đang tìm mã QR...</p>
+            <p className="text-xs text-muted-foreground">Camera đang hoạt động - Di chuyển mã QR vào khung hình</p>
           </>
         )}
         {active && !cameraReady && isLoading && (
-          <p className="text-xs text-orange-500">⏳ Đang khởi động camera...</p>
+          <p className="text-xs text-muted-foreground">Đang khởi động camera...</p>
         )}
       </div>
     </div>

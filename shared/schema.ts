@@ -12,7 +12,6 @@ import {
   time,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Session storage table for Replit Auth
@@ -149,35 +148,50 @@ export const eventCollaboratorsRelations = relations(eventCollaborators, ({ one 
 }));
 
 // Insert schemas
-export const insertEventSchema = createInsertSchema(events).omit({
-  id: true,
-  createdAt: true,
+export const insertEventSchema = z.object({
+  userId: z.string(),
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  eventDate: z.string(),
+  startTime: z.string().optional().nullable(),
+  endTime: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  isActive: z.boolean().optional(),
 });
 
-export const insertAttendeeSchema = createInsertSchema(attendees).omit({
-  id: true,
-  createdAt: true,
-  qrCode: true,
-  qrPath: true,
-  status: true,
-  checkinTime: true,
-  checkoutTime: true,
+export const insertAttendeeSchema = z.object({
+  eventId: z.number(),
+  name: z.string().min(1),
+  studentId: z.string().min(1),
+  email: z.string().email().optional().nullable().or(z.literal("")),
+  faculty: z.string().optional().nullable(),
+  major: z.string().optional().nullable(),
+  qrCode: z.string().optional().nullable(),
+  qrPath: z.string().optional().nullable(),
+  status: z.enum(["pending", "checked_in", "checked_out"]).optional(),
+  checkinTime: z.date().optional().nullable(),
+  checkoutTime: z.date().optional().nullable(),
 });
 
-export const insertCheckinLogSchema = createInsertSchema(checkinLogs).omit({
-  id: true,
-  timestamp: true,
+export const insertCheckinLogSchema = z.object({
+  attendeeId: z.number(),
+  action: z.enum(["check_in", "check_out"]),
+  ipAddress: z.string().optional().nullable(),
+  userAgent: z.string().optional().nullable(),
 });
 
-export const insertLocalAuthSchema = createInsertSchema(localAuth).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+export const insertLocalAuthSchema = z.object({
+  userId: z.string(),
+  username: z.string().min(1),
+  passwordHash: z.string().min(1),
 });
 
-export const insertEventCollaboratorSchema = createInsertSchema(eventCollaborators).omit({
-  id: true,
-  createdAt: true,
+export const insertEventCollaboratorSchema = z.object({
+  eventId: z.number(),
+  userId: z.string(),
+  role: z.string().optional(),
+  permissions: z.array(z.string()).optional(),
+  invitedBy: z.string().optional().nullable(),
 });
 
 // Types

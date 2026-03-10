@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { Loader2 } from "lucide-react";
 
 const eventSchema = z.object({
   name: z.string().min(1, "Tên sự kiện là bắt buộc"),
@@ -132,7 +133,7 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
               data-testid="input-event-name"
             />
             {form.formState.errors.name && (
-              <p className="text-sm text-red-600 mt-1">{form.formState.errors.name.message}</p>
+              <p className="mt-1 text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
           </div>
           
@@ -157,7 +158,7 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
                 data-testid="input-event-date"
               />
               {form.formState.errors.eventDate && (
-                <p className="text-sm text-red-600 mt-1">{form.formState.errors.eventDate.message}</p>
+                <p className="mt-1 text-sm text-destructive">{form.formState.errors.eventDate.message}</p>
               )}
             </div>
             <div>
@@ -208,7 +209,7 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
             >
               {mutation.isPending ? (
                 <>
-                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Đang lưu...
                 </>
               ) : (

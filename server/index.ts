@@ -2,29 +2,22 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { wsManager } from "./websocket";
+import { setSecurityHeaders } from "./requestGuards";
+import { ensureDatabaseIndexes } from "./dbIndexes";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(setSecurityHeaders);
 
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
 
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
@@ -37,18 +30,54 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((req, res, next) => {
+  const unsafeMethod = req.method === "POST" || req.method === "PUT" || req.method === "PATCH" || req.method === "DELETE";
+  if (!unsafeMethod || !req.path.startsWith("/api")) {
+    return next();
+  }
+
+  const origin = req.get("origin");
+  const referer = req.get("referer");
+  const expectedOrigin = `${req.protocol}://${req.get("host")}`;
+
+  const isTrusted = (value?: string) => {
+    if (!value) return true;
+    try {
+      return new URL(value).origin === expectedOrigin;
+    } catch {
+      return false;
+    }
+  };
+
+  if (!isTrusted(origin) || !isTrusted(referer)) {
+    return res.status(403).json({ message: "CSRF protection: invalid origin" });
+  }
+
+  return next();
+});
+
 (async () => {
+  try {
+    await ensureDatabaseIndexes();
+  } catch (error) {
+    log(`failed to ensure database indexes: ${(error as Error).message}`, "express");
+  }
+
   const server = await registerRoutes(app);
   
   // Initialize WebSocket server
   wsManager.initialize(server);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    if (err?.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ message: "File upload vuot qua gioi han cho phep" });
+    }
+
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    log(`error ${status}: ${message}`, "express");
   });
 
   // importantly only setup vite in development and after

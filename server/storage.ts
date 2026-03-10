@@ -19,7 +19,7 @@ import {
   type InsertEventCollaborator,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Optimized operations
@@ -42,8 +42,9 @@ export interface IStorage {
   deleteEvent(id: number, userId: string): Promise<boolean>;
   
   // Attendee operations
-  getAttendeesByEventId(eventId: number): Promise<Attendee[]>;
+  getAttendeesByEventId(eventId: number, limit?: number, offset?: number): Promise<Attendee[]>;
   getAttendeeById(id: number): Promise<Attendee | undefined>;
+  getAttendeesByIds(ids: number[]): Promise<Attendee[]>;
   getAttendeeByQrCode(qrCode: string): Promise<Attendee | undefined>;
   createAttendee(attendee: InsertAttendee): Promise<Attendee>;
   updateAttendee(id: number, attendee: Partial<Attendee>): Promise<Attendee | undefined>;
@@ -184,13 +185,24 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async getAttendeesByEventId(eventId: number): Promise<Attendee[]> {
-    return db.select().from(attendees).where(eq(attendees.eventId, eventId)).orderBy(desc(attendees.createdAt));
+  async getAttendeesByEventId(eventId: number, limit: number = 100000, offset: number = 0): Promise<Attendee[]> {
+    return db
+      .select()
+      .from(attendees)
+      .where(eq(attendees.eventId, eventId))
+      .orderBy(desc(attendees.createdAt))
+      .limit(limit)
+      .offset(offset);
   }
 
   async getAttendeeById(id: number): Promise<Attendee | undefined> {
     const [attendee] = await db.select().from(attendees).where(eq(attendees.id, id));
     return attendee;
+  }
+
+  async getAttendeesByIds(ids: number[]): Promise<Attendee[]> {
+    if (ids.length === 0) return [];
+    return db.select().from(attendees).where(inArray(attendees.id, ids));
   }
 
   async getAttendeeByQrCode(qrCode: string): Promise<Attendee | undefined> {
@@ -222,23 +234,17 @@ export class DatabaseStorage implements IStorage {
       return { deletedCount: 0, errors: [] };
     }
 
-    const errors: string[] = [];
-    let deletedCount = 0;
+    const existing = await this.getAttendeesByIds(ids);
+    const existingIds = new Set(existing.map((attendee) => attendee.id));
+    const missingIds = ids.filter((id) => !existingIds.has(id));
 
-    for (const id of ids) {
-      try {
-        const deleted = await this.deleteAttendee(id);
-        if (deleted) {
-          deletedCount++;
-        } else {
-          errors.push(`Sinh viên với ID ${id} không tồn tại`);
-        }
-      } catch (error) {
-        errors.push(`Lỗi khi xóa sinh viên ID ${id}: ${error}`);
-      }
-    }
+    const result = await db.delete(attendees).where(inArray(attendees.id, Array.from(existingIds)));
+    const deletedCount = result.rowCount ?? 0;
 
-    return { deletedCount, errors };
+    return {
+      deletedCount,
+      errors: missingIds.map((id) => `Sinh vien voi ID ${id} khong ton tai`),
+    };
   }
 
   async createCheckinLog(log: InsertCheckinLog): Promise<CheckinLog> {
@@ -268,6 +274,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentCheckinsByUserId(userId: string, limit: number = 10): Promise<Array<CheckinLog & { attendee: Attendee; event: Event }>> {
+    const [ownedEventRows, collaboratorEventRows] = await Promise.all([
+      db.select({ id: events.id }).from(events).where(eq(events.userId, userId)),
+      db
+        .select({ id: eventCollaborators.eventId })
+        .from(eventCollaborators)
+        .where(eq(eventCollaborators.userId, userId)),
+    ]);
+
+    const eventIds = Array.from(
+      new Set([
+        ...ownedEventRows.map((eventRow) => eventRow.id),
+        ...collaboratorEventRows.map((eventRow) => eventRow.id),
+      ])
+    );
+
+    if (eventIds.length === 0) {
+      return [];
+    }
+
     const results = await db
       .select({
         id: checkinLogs.id,
@@ -282,7 +307,7 @@ export class DatabaseStorage implements IStorage {
       .from(checkinLogs)
       .innerJoin(attendees, eq(checkinLogs.attendeeId, attendees.id))
       .innerJoin(events, eq(attendees.eventId, events.id))
-      .where(eq(events.userId, userId))
+      .where(inArray(attendees.eventId, eventIds))
       .orderBy(desc(checkinLogs.timestamp))
       .limit(limit);
     
@@ -295,25 +320,53 @@ export class DatabaseStorage implements IStorage {
     todayCheckins: number;
     activeEvents: number;
   }> {
-    const today = new Date().toISOString().split('T')[0];
-    
-    const [stats] = await db
-      .select({
-        totalEvents: sql<number>`count(distinct ${events.id})`,
-        totalStudents: sql<number>`count(distinct ${attendees.id})`,
-        todayCheckins: sql<number>`count(distinct case when date(${checkinLogs.timestamp}) = ${today} and ${checkinLogs.action} = 'check_in' then ${checkinLogs.id} end)`,
-        activeEvents: sql<number>`count(distinct case when ${events.isActive} = true and ${events.eventDate} >= current_date then ${events.id} end)`,
-      })
-      .from(events)
-      .leftJoin(attendees, eq(events.id, attendees.eventId))
-      .leftJoin(checkinLogs, eq(attendees.id, checkinLogs.attendeeId))
-      .where(eq(events.userId, userId));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [
+      [totalEventsResult],
+      [totalStudentsResult],
+      [todayCheckinsResult],
+      [activeEventsResult],
+    ] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(events)
+        .where(eq(events.userId, userId)),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(attendees)
+        .innerJoin(events, eq(attendees.eventId, events.id))
+        .where(eq(events.userId, userId)),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(checkinLogs)
+        .innerJoin(attendees, eq(checkinLogs.attendeeId, attendees.id))
+        .innerJoin(events, eq(attendees.eventId, events.id))
+        .where(
+          and(
+            eq(events.userId, userId),
+            eq(checkinLogs.action, "check_in"),
+            sql`${checkinLogs.timestamp} >= ${today}`
+          )
+        ),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(events)
+        .where(
+          and(
+            eq(events.userId, userId),
+            eq(events.isActive, true),
+            sql`${events.eventDate} >= CURRENT_DATE`
+          )
+        ),
+    ]);
 
     return {
-      totalEvents: stats.totalEvents || 0,
-      totalStudents: stats.totalStudents || 0,
-      todayCheckins: stats.todayCheckins || 0,
-      activeEvents: stats.activeEvents || 0,
+      totalEvents: Number(totalEventsResult?.count || 0),
+      totalStudents: Number(totalStudentsResult?.count || 0),
+      todayCheckins: Number(todayCheckinsResult?.count || 0),
+      activeEvents: Number(activeEventsResult?.count || 0),
     };
   }
 

@@ -4,7 +4,6 @@ import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
-import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
 
@@ -20,9 +19,18 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  const parsedPort = parseInt(process.env.PORT || "5000", 10);
+  const clientPort = Number.isFinite(parsedPort) ? parsedPort : 5000;
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    port: clientPort,
+    hmr: {
+      server,
+      host: "localhost",
+      port: clientPort,
+      clientPort,
+      protocol: "ws" as const,
+    },
     allowedHosts: true as const,
   };
 
@@ -33,7 +41,6 @@ export async function setupVite(app: Express, server: Server) {
       ...viteLogger,
       error: (msg, options) => {
         viteLogger.error(msg, options);
-        process.exit(1);
       },
     },
     server: serverOptions,
@@ -52,12 +59,8 @@ export async function setupVite(app: Express, server: Server) {
         "index.html",
       );
 
-      // always reload the index.html file from disk incase it changes
+      // Always reload index.html from disk in case it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {

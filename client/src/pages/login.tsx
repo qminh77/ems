@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, UserPlus, LogIn, GraduationCap, UserCircle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { queryClient } from "@/lib/queryClient";
 
 export default function LoginPage() {
@@ -151,18 +150,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      <Card className="w-full max-w-md shadow-2xl border-0">
-        <CardHeader className="text-center bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg py-8">
+    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
+      <Card className="w-full max-w-lg">
+        <CardHeader className="border-b py-8 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-20 h-20 bg-white/20 backdrop-blur rounded-full flex items-center justify-center shadow-lg">
-              <GraduationCap className="h-10 w-10 text-white" />
+            <div className="flex h-20 w-20 items-center justify-center rounded-full border bg-muted">
+              <GraduationCap className="h-10 w-10 text-foreground" />
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold">Hệ Thống Quản Lý Sự Kiện</CardTitle>
-          <CardDescription className="text-white/90 mt-2">EMS - Event Management System Việt Nam</CardDescription>
+          <CardTitle className="text-2xl font-semibold tracking-tight">Hệ Thống Quản Lý Sự Kiện</CardTitle>
+          <CardDescription className="mt-2 text-muted-foreground">EMS - Event Management System Việt Nam</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login" className="font-semibold">Đăng nhập</TabsTrigger>
@@ -196,17 +195,19 @@ export default function LoginPage() {
                       className="pr-10"
                       data-testid="input-password-login"
                     />
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       data-testid="button-toggle-password"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                    </Button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" disabled={isLoading} data-testid="button-login-local">
+                <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-login-local">
                   <LogIn className="mr-2 h-4 w-4" />
                   Đăng nhập
                 </Button>
@@ -223,7 +224,7 @@ export default function LoginPage() {
               
               <Button 
                 variant="outline" 
-                className="w-full border-2 border-gray-300 hover:bg-gray-50" 
+                className="w-full" 
                 onClick={handleReplitLogin}
                 disabled={isLoading}
                 data-testid="button-login-replit"
@@ -235,7 +236,7 @@ export default function LoginPage() {
             
             <TabsContent value="register" className="space-y-4">
               <form onSubmit={handleRegister} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">Họ</Label>
                     <Input
@@ -318,7 +319,7 @@ export default function LoginPage() {
                   />
                 </div>
                 
-                <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" disabled={isLoading} data-testid="button-register">
+                <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-register">
                   <UserPlus className="mr-2 h-4 w-4" />
                   Đăng ký tài khoản
                 </Button>

@@ -1,178 +1,253 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { queryClient } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface WebSocketMessage {
   type: string;
   data: any;
 }
 
-export function useWebSocket() {
-  const ws = useRef<WebSocket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
-  const { toast } = useToast();
-  
-  // Get user data
-  const { data: user } = useQuery<any>({
-    queryKey: ['/api/auth/user'],
+interface SharedState {
+  ws: WebSocket | null;
+  isConnected: boolean;
+  lastMessage: WebSocketMessage | null;
+  connectPromise: Promise<void> | null;
+  reconnectTimeout: ReturnType<typeof setTimeout> | null;
+  reconnectAttempts: number;
+  maxReconnectAttempts: number;
+  pingInterval: ReturnType<typeof setInterval> | null;
+  userId: string | null;
+  subscriberCount: number;
+}
+
+const sharedState: SharedState = {
+  ws: null,
+  isConnected: false,
+  lastMessage: null,
+  connectPromise: null,
+  reconnectTimeout: null,
+  reconnectAttempts: 0,
+  maxReconnectAttempts: 5,
+  pingInterval: null,
+  userId: null,
+  subscriberCount: 0,
+};
+
+const listeners = new Set<(state: { isConnected: boolean; lastMessage: WebSocketMessage | null }) => void>();
+
+function notify() {
+  const snapshot = {
+    isConnected: sharedState.isConnected,
+    lastMessage: sharedState.lastMessage,
+  };
+  listeners.forEach((listener) => listener(snapshot));
+}
+
+function handleMessage(message: WebSocketMessage) {
+  sharedState.lastMessage = message;
+
+  switch (message.type) {
+    case 'checkin_update':
+      queryClient.setQueryData(['/api/checkin/recent'], (current: any[] | undefined) => {
+        if (!Array.isArray(current)) {
+          return current;
+        }
+
+        const withoutDuplicate = current.filter((item) => item.id !== message.data?.id);
+        return [message.data, ...withoutDuplicate].slice(0, current.length);
+      });
+      break;
+
+    case 'stats_update':
+      queryClient.setQueryData(['/api/dashboard/stats'], message.data);
+      break;
+
+    case 'attendee_update':
+      queryClient.invalidateQueries({
+        queryKey: ['/api/events', String(message.data.eventId), 'attendees'],
+      });
+      break;
+
+    default:
+      break;
+  }
+
+  notify();
+}
+
+async function getConnectionToken(): Promise<string> {
+  const response = await fetch('/api/ws-token', {
+    credentials: 'include',
   });
 
-  const connect = useCallback(() => {
-    if (!user?.id || ws.current?.readyState === WebSocket.OPEN) return;
+  if (!response.ok) {
+    throw new Error('Unable to get websocket token');
+  }
 
+  const payload = await response.json();
+  return payload.token;
+}
+
+async function connect(userId: string) {
+  if (sharedState.userId && sharedState.userId !== userId) {
+    disconnectAll();
+  }
+
+  const sameUserConnection =
+    sharedState.ws &&
+    sharedState.userId === userId &&
+    (sharedState.ws.readyState === WebSocket.OPEN || sharedState.ws.readyState === WebSocket.CONNECTING);
+
+  if (sameUserConnection) {
+    return;
+  }
+
+  if (sharedState.connectPromise) {
+    return sharedState.connectPromise;
+  }
+
+  if (sharedState.reconnectTimeout) {
+    clearTimeout(sharedState.reconnectTimeout);
+    sharedState.reconnectTimeout = null;
+  }
+
+  sharedState.userId = userId;
+
+  sharedState.connectPromise = (async () => {
     try {
-      // Determine WebSocket URL based on current location
+      const token = await getConnectionToken();
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws?userId=${user.id}`;
+      const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`;
 
-      ws.current = new WebSocket(wsUrl);
+      const ws = new WebSocket(wsUrl);
+      sharedState.ws = ws;
 
-      ws.current.onopen = () => {
-        console.log('WebSocket connected');
-        setIsConnected(true);
-        reconnectAttempts.current = 0;
-        
-        // Don't send initial ping immediately to reduce server load
+      ws.onopen = () => {
+        sharedState.isConnected = true;
+        sharedState.reconnectAttempts = 0;
+        notify();
       };
 
-      ws.current.onmessage = (event) => {
+      ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
           handleMessage(message);
-          setLastMessage(message);
-        } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+        } catch {
+          // Ignore malformed frame
         }
       };
 
-      ws.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
+      ws.onclose = () => {
+        sharedState.isConnected = false;
+        sharedState.ws = null;
+        notify();
 
-      ws.current.onclose = () => {
-        console.log('WebSocket disconnected');
-        setIsConnected(false);
-        ws.current = null;
+        if (sharedState.subscriberCount === 0) {
+          return;
+        }
 
-        // Attempt to reconnect with exponential backoff
-        if (reconnectAttempts.current < maxReconnectAttempts) {
-          const timeout = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttempts.current++;
-            console.log(`Attempting to reconnect... (${reconnectAttempts.current}/${maxReconnectAttempts})`);
-            connect();
+        if (sharedState.reconnectAttempts < sharedState.maxReconnectAttempts) {
+          const timeout = Math.min(1000 * Math.pow(2, sharedState.reconnectAttempts), 30000);
+          sharedState.reconnectTimeout = setTimeout(() => {
+            sharedState.reconnectAttempts += 1;
+            if (sharedState.userId) {
+              connect(sharedState.userId);
+            }
           }, timeout);
         }
       };
-    } catch (error) {
-      console.error('Failed to connect WebSocket:', error);
-    }
-  }, [user?.id]);
 
-  const handleMessage = useCallback((message: WebSocketMessage) => {
-    switch (message.type) {
-      case 'connected':
-        console.log('WebSocket connection confirmed:', message.data);
-        break;
-        
-      case 'checkin_update':
-        // Invalidate queries to refresh data
-        queryClient.invalidateQueries({ queryKey: ['/api/checkin/recent'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-        
-        // Show notification for check-in updates
-        const action = message.data.action === 'check_in' ? 'Check-in' : 'Check-out';
-        toast({
-          title: `${action} Real-time`,
-          description: `${message.data.attendee.name} - ${message.data.attendee.studentId}`,
-          duration: 3000,
-        });
-        break;
-        
-      case 'stats_update':
-        // Update dashboard stats
-        queryClient.setQueryData(['/api/dashboard/stats'], message.data);
-        break;
-        
-      case 'attendee_update':
-        // Update attendee list for specific event
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/events/${message.data.eventId}/attendees`] 
-        });
-        break;
-        
-      case 'pong':
-        // Server responded to ping
-        break;
-        
-      default:
-        console.log('Unknown message type:', message.type);
-    }
-  }, [toast]);
+      ws.onerror = () => {
+        // Keep silent in UI, onclose handles reconnection.
+      };
 
-  const sendMessage = useCallback((message: any) => {
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify(message));
+      if (!sharedState.pingInterval) {
+        sharedState.pingInterval = setInterval(() => {
+          if (sharedState.ws?.readyState === WebSocket.OPEN) {
+            sharedState.ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 60000);
+      }
+    } catch {
+      sharedState.isConnected = false;
+      notify();
     }
-  }, []);
+  })();
 
-  const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    
-    if (ws.current) {
-      ws.current.close();
-      ws.current = null;
-    }
-    
-    setIsConnected(false);
+  try {
+    await sharedState.connectPromise;
+  } finally {
+    sharedState.connectPromise = null;
+  }
+}
+
+function disconnectAll() {
+  if (sharedState.reconnectTimeout) {
+    clearTimeout(sharedState.reconnectTimeout);
+    sharedState.reconnectTimeout = null;
+  }
+
+  if (sharedState.pingInterval) {
+    clearInterval(sharedState.pingInterval);
+    sharedState.pingInterval = null;
+  }
+
+  if (sharedState.ws) {
+    sharedState.ws.close();
+    sharedState.ws = null;
+  }
+
+  sharedState.userId = null;
+  sharedState.connectPromise = null;
+  sharedState.isConnected = false;
+  sharedState.lastMessage = null;
+  sharedState.reconnectAttempts = 0;
+  notify();
+}
+
+export function useWebSocket() {
+  const { user } = useAuth() as { user?: any };
+
+  const [state, setState] = useState({
+    isConnected: sharedState.isConnected,
+    lastMessage: sharedState.lastMessage,
+  });
+
+  useEffect(() => {
+    listeners.add(setState);
+    sharedState.subscriberCount += 1;
+    notify();
+
+    return () => {
+      listeners.delete(setState);
+      sharedState.subscriberCount = Math.max(0, sharedState.subscriberCount - 1);
+      if (sharedState.subscriberCount === 0) {
+        disconnectAll();
+      }
+    };
   }, []);
 
   useEffect(() => {
     if (user?.id) {
-      connect();
+      connect(user.id);
     }
+  }, [user?.id]);
 
-    // Ping interval to keep connection alive (increased interval)
-    const pingInterval = setInterval(() => {
-      if (ws.current?.readyState === WebSocket.OPEN) {
-        sendMessage({ type: 'ping' });
-      }
-    }, 60000); // Ping every 60 seconds to reduce overhead
+  const sendMessage = (message: any) => {
+    if (sharedState.ws?.readyState === WebSocket.OPEN) {
+      sharedState.ws.send(JSON.stringify(message));
+    }
+  };
 
-    // Page visibility change handler
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // Page is hidden, could disconnect to save resources
-      } else {
-        // Page is visible, ensure connection
-        if (!isConnected && user?.id) {
-          connect();
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      clearInterval(pingInterval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      disconnect();
-    };
-  }, [user?.id, connect, disconnect, sendMessage]);
+  const disconnect = () => {
+    disconnectAll();
+  };
 
   return {
-    isConnected,
-    lastMessage,
+    isConnected: state.isConnected,
+    lastMessage: state.lastMessage,
     sendMessage,
-    disconnect
+    disconnect,
   };
 }
