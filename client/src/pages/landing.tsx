@@ -14,7 +14,7 @@ export default function Landing() {
   }, [isAuthenticated, isLoading]);
 
   const handleLogin = () => {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
   };
 
   return (
@@ -33,15 +33,15 @@ export default function Landing() {
             <Button 
               onClick={handleLogin}
               className="w-full"
-              data-testid="button-login-replit"
+              data-testid="button-login-local"
             >
               <UserCircle2 className="h-4 w-4" />
-              <span>Đăng nhập với Replit</span>
+              <span>Đăng nhập tài khoản</span>
             </Button>
           </div>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Sử dụng tài khoản Replit để truy cập an toàn</p>
+            <p>Sử dụng tài khoản nội bộ để truy cập hệ thống</p>
           </div>
         </CardContent>
       </Card>
