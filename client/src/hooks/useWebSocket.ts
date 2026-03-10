@@ -12,6 +12,7 @@ interface SharedState {
   isConnected: boolean;
   lastMessage: WebSocketMessage | null;
   connectPromise: Promise<void> | null;
+  wsUnsupported: boolean;
   reconnectTimeout: ReturnType<typeof setTimeout> | null;
   reconnectAttempts: number;
   maxReconnectAttempts: number;
@@ -25,6 +26,7 @@ const sharedState: SharedState = {
   isConnected: false,
   lastMessage: null,
   connectPromise: null,
+  wsUnsupported: false,
   reconnectTimeout: null,
   reconnectAttempts: 0,
   maxReconnectAttempts: 5,
@@ -80,6 +82,12 @@ async function getConnectionToken(): Promise<string> {
     credentials: 'include',
   });
 
+  if (response.status === 404 || response.status === 501 || response.status === 503) {
+    const error = new Error('WebSocket unsupported');
+    (error as Error & { code?: string }).code = 'WS_UNSUPPORTED';
+    throw error;
+  }
+
   if (!response.ok) {
     throw new Error('Unable to get websocket token');
   }
@@ -89,6 +97,10 @@ async function getConnectionToken(): Promise<string> {
 }
 
 async function connect(userId: string) {
+  if (sharedState.wsUnsupported) {
+    return;
+  }
+
   if (sharedState.userId && sharedState.userId !== userId) {
     disconnectAll();
   }
@@ -169,7 +181,11 @@ async function connect(userId: string) {
           }
         }, 60000);
       }
-    } catch {
+    } catch (error) {
+      const wsError = error as Error & { code?: string };
+      if (wsError.code === 'WS_UNSUPPORTED') {
+        sharedState.wsUnsupported = true;
+      }
       sharedState.isConnected = false;
       notify();
     }
@@ -200,6 +216,7 @@ function disconnectAll() {
 
   sharedState.userId = null;
   sharedState.connectPromise = null;
+  sharedState.wsUnsupported = false;
   sharedState.isConnected = false;
   sharedState.lastMessage = null;
   sharedState.reconnectAttempts = 0;

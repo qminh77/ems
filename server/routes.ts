@@ -10,7 +10,16 @@ import { registerAttendeeRoutes } from "./routes/attendeeRoutes";
 import { registerCheckinRoutes } from "./routes/checkinRoutes";
 import { registerCollaboratorRoutes } from "./routes/collaboratorRoutes";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+interface RegisterRoutesOptions {
+  createHttpServer?: boolean;
+}
+
+export async function registerRoutes(
+  app: Express,
+  options: RegisterRoutesOptions = {}
+): Promise<Server | null> {
+  const { createHttpServer = true } = options;
+
   await setupAuth(app);
   setupLocalAuth(app);
 
@@ -30,6 +39,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     return res.sendFile(filePath);
   });
+
+  if (!createHttpServer) {
+    return null;
+  }
 
   return createServer(app);
 }

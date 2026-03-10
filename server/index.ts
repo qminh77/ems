@@ -63,7 +63,10 @@ app.use((req, res, next) => {
     log(`failed to ensure database indexes: ${(error as Error).message}`, "express");
   }
 
-  const server = await registerRoutes(app);
+  const server = await registerRoutes(app, { createHttpServer: true });
+  if (!server) {
+    throw new Error("Failed to create HTTP server");
+  }
   
   // Initialize WebSocket server
   wsManager.initialize(server);
