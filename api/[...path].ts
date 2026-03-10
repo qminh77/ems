@@ -1,10 +1,13 @@
 import express from "express";
-import { registerRoutes } from "../server/routes";
-import { setSecurityHeaders } from "../server/requestGuards";
 
 let appPromise: Promise<express.Express> | null = null;
 
 async function createVercelApp() {
+  const [{ registerRoutes }, { setSecurityHeaders }] = await Promise.all([
+    import("../server/routes"),
+    import("../server/requestGuards"),
+  ]);
+
   const app = express();
 
   app.use(express.json());
@@ -60,6 +63,14 @@ async function getApp() {
 }
 
 export default async function handler(req: any, res: any) {
-  const app = await getApp();
-  return app(req, res);
+  try {
+    const app = await getApp();
+    return app(req, res);
+  } catch (error: any) {
+    const message = error?.message || "Server bootstrap failed";
+    return res.status(500).json({
+      message: "API initialization failed",
+      detail: message,
+    });
+  }
 }
