@@ -32,6 +32,22 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  canCreateEvents: boolean("can_create_events").notNull().default(true),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const systemSettings = pgTable("system_settings", {
+  id: integer("id").primaryKey().default(1),
+  systemName: varchar("system_name", { length: 150 }).notNull().default("EMS Platform"),
+  systemDescription: text("system_description").notNull().default("Nền tảng quản lý sự kiện tập trung"),
+  contactEmail: varchar("contact_email", { length: 255 }).notNull().default("support@example.com"),
+  contactPhone: varchar("contact_phone", { length: 30 }).notNull().default(""),
+  logoUrl: text("logo_url"),
+  footerText: text("footer_text").notNull().default("© EMS Platform"),
+  registrationEnabled: boolean("registration_enabled").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -194,6 +210,22 @@ export const insertEventCollaboratorSchema = z.object({
   invitedBy: z.string().optional().nullable(),
 });
 
+export const updateSystemSettingsSchema = z.object({
+  systemName: z.string().trim().min(1).max(150),
+  systemDescription: z.string().trim().min(1).max(500),
+  contactEmail: z.string().trim().email().max(255),
+  contactPhone: z.string().trim().max(30),
+  logoUrl: z.string().trim().url().max(500).optional().nullable().or(z.literal("")),
+  footerText: z.string().trim().min(1).max(500),
+  registrationEnabled: z.boolean(),
+});
+
+export const updateUserAdminSchema = z.object({
+  isAdmin: z.boolean().optional(),
+  canCreateEvents: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -207,3 +239,6 @@ export type LocalAuth = typeof localAuth.$inferSelect;
 export type InsertLocalAuth = z.infer<typeof insertLocalAuthSchema>;
 export type EventCollaborator = typeof eventCollaborators.$inferSelect;
 export type InsertEventCollaborator = z.infer<typeof insertEventCollaboratorSchema>;
+export type SystemSettings = typeof systemSettings.$inferSelect;
+export type UpdateSystemSettings = z.infer<typeof updateSystemSettingsSchema>;
+export type UpdateUserAdmin = z.infer<typeof updateUserAdminSchema>;

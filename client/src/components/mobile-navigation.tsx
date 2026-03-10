@@ -1,15 +1,19 @@
 import { useLocation } from "wouter";
-import { BarChart3, Calendar, QrCode, Users } from "lucide-react";
+import { BarChart3, Calendar, QrCode, Settings, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function MobileNavigation() {
   const [location, setLocation] = useLocation();
+  const { user } = useAuth() as { user?: any };
 
   const navigation = [
     { name: "Tổng quan", href: "/", icon: BarChart3, page: "/" },
     { name: "Sự kiện", href: "/events", icon: Calendar, page: "/events" },
     { name: "Sinh viên", href: "/students", icon: Users, page: "/students" },
     { name: "Check-in", href: "/checkin", icon: QrCode, page: "/checkin" },
+    ...(user?.isAdmin ? [{ name: "Admin", href: "/admin", icon: Settings, page: "/admin" }] : []),
   ];
 
   const isActive = (page: string) => {
@@ -17,24 +21,28 @@ export default function MobileNavigation() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background lg:hidden safe-area-pb" data-testid="mobile-navigation">
-      <div className="grid grid-cols-4 h-16">
+    <div className="fixed inset-x-0 bottom-3 z-40 px-3 md:hidden safe-area-pb" data-testid="mobile-navigation">
+      <div className="mx-auto max-w-md rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className={cn("grid h-14 gap-1", user?.isAdmin ? "grid-cols-5" : "grid-cols-4")}>
         {navigation.map((item) => (
           <Button
             key={item.page}
             onClick={() => setLocation(item.href)}
             variant="ghost"
-            className={`h-auto rounded-none flex flex-col items-center justify-center space-y-1 transition-colors ${
-              isActive(item.page) 
-                ? 'bg-muted text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={cn(
+              "h-auto rounded-xl px-1.5 py-1.5 transition-all",
+              "flex flex-col items-center justify-center gap-1",
+              isActive(item.page)
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
             data-testid={`mobile-nav-${item.page.replace('/', '') || 'dashboard'}`}
           >
             <item.icon className="h-4 w-4" />
-            <span className="text-xs font-medium">{item.name}</span>
+            <span className="text-[11px] font-medium leading-none">{item.name}</span>
           </Button>
         ))}
+        </div>
       </div>
     </div>
   );

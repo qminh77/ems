@@ -5,6 +5,7 @@ import {
   checkinLogs,
   localAuth,
   eventCollaborators,
+  systemSettings,
   type User,
   type UpsertUser,
   type Event,
@@ -17,6 +18,9 @@ import {
   type InsertLocalAuth,
   type EventCollaborator,
   type InsertEventCollaborator,
+  type SystemSettings,
+  type UpdateSystemSettings,
+  type UpdateUserAdmin,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
@@ -33,6 +37,8 @@ export interface IStorage {
   getLocalAuthByUsername(username: string): Promise<LocalAuth | undefined>;
   getLocalAuthByEmailOrUsername(emailOrUsername: string): Promise<LocalAuth | undefined>;
   getLocalAuthByUserId(userId: string): Promise<LocalAuth | undefined>;
+  listUsers(): Promise<User[]>;
+  updateUserAdmin(id: string, payload: UpdateUserAdmin): Promise<User | undefined>;
   
   // Event operations
   getEventsByUserId(userId: string): Promise<Event[]>;
@@ -72,9 +78,47 @@ export interface IStorage {
   checkEventAccess(eventId: number, userId: string): Promise<{ hasAccess: boolean; role?: string; permissions?: string[] }>;
   updateCollaboratorPermissions(eventId: number, userId: string, permissions: string[]): Promise<EventCollaborator | undefined>;
   searchUsersByEmailOrUsername(query: string): Promise<User[]>;
+
+  // System settings
+  getSystemSettings(): Promise<SystemSettings>;
+  updateSystemSettings(payload: UpdateSystemSettings): Promise<SystemSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
+  private readonly defaultSystemSettings: UpdateSystemSettings = {
+    systemName: "EMS Platform",
+    systemDescription: "Nền tảng quản lý sự kiện tập trung",
+    contactEmail: "support@example.com",
+    contactPhone: "",
+    logoUrl: "",
+    footerText: "© EMS Platform",
+    registrationEnabled: true,
+  };
+
+  private normalizeLogoUrl(value?: string | null): string | null {
+    if (!value || !value.trim()) {
+      return null;
+    }
+
+    return value.trim();
+  }
+
+  private async ensureSystemSettingsRow(): Promise<void> {
+    await db
+      .insert(systemSettings)
+      .values({
+        id: 1,
+        systemName: this.defaultSystemSettings.systemName,
+        systemDescription: this.defaultSystemSettings.systemDescription,
+        contactEmail: this.defaultSystemSettings.contactEmail,
+        contactPhone: this.defaultSystemSettings.contactPhone,
+        logoUrl: this.normalizeLogoUrl(this.defaultSystemSettings.logoUrl),
+        footerText: this.defaultSystemSettings.footerText,
+        registrationEnabled: this.defaultSystemSettings.registrationEnabled,
+      })
+      .onConflictDoNothing({ target: systemSettings.id });
+  }
+
   // Optimized method to get attendee with event in single query
   async getAttendeeWithEvent(qrCode: string): Promise<{ attendee: Attendee; event: Event } | undefined> {
     const result = await db
@@ -162,6 +206,88 @@ export class DatabaseStorage implements IStorage {
   async getLocalAuthByUserId(userId: string): Promise<LocalAuth | undefined> {
     const [auth] = await db.select().from(localAuth).where(eq(localAuth.userId, userId));
     return auth;
+  }
+
+  async listUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async updateUserAdmin(id: string, payload: UpdateUserAdmin): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        ...payload,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+
+    return updatedUser;
+  }
+
+  async getSystemSettings(): Promise<SystemSettings> {
+    await this.ensureSystemSettingsRow();
+
+    const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, 1)).limit(1);
+
+    if (settings) {
+      return settings;
+    }
+
+    const [createdSettings] = await db
+      .insert(systemSettings)
+      .values({
+        id: 1,
+        systemName: this.defaultSystemSettings.systemName,
+        systemDescription: this.defaultSystemSettings.systemDescription,
+        contactEmail: this.defaultSystemSettings.contactEmail,
+        contactPhone: this.defaultSystemSettings.contactPhone,
+        logoUrl: this.normalizeLogoUrl(this.defaultSystemSettings.logoUrl),
+        footerText: this.defaultSystemSettings.footerText,
+        registrationEnabled: this.defaultSystemSettings.registrationEnabled,
+      })
+      .returning();
+
+    return createdSettings;
+  }
+
+  async updateSystemSettings(payload: UpdateSystemSettings): Promise<SystemSettings> {
+    await this.ensureSystemSettingsRow();
+
+    const [updatedSettings] = await db
+      .update(systemSettings)
+      .set({
+        systemName: payload.systemName,
+        systemDescription: payload.systemDescription,
+        contactEmail: payload.contactEmail,
+        contactPhone: payload.contactPhone,
+        logoUrl: this.normalizeLogoUrl(payload.logoUrl),
+        footerText: payload.footerText,
+        registrationEnabled: payload.registrationEnabled,
+        updatedAt: new Date(),
+      })
+      .where(eq(systemSettings.id, 1))
+      .returning();
+
+    if (updatedSettings) {
+      return updatedSettings;
+    }
+
+    const [createdSettings] = await db
+      .insert(systemSettings)
+      .values({
+        id: 1,
+        systemName: payload.systemName,
+        systemDescription: payload.systemDescription,
+        contactEmail: payload.contactEmail,
+        contactPhone: payload.contactPhone,
+        logoUrl: this.normalizeLogoUrl(payload.logoUrl),
+        footerText: payload.footerText,
+        registrationEnabled: payload.registrationEnabled,
+      })
+      .returning();
+
+    return createdSettings;
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {

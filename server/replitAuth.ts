@@ -56,12 +56,23 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
+  const existing = await storage.getUser(claims["sub"]);
+  const allUsers = existing ? [] : await storage.listUsers();
+  const hasAnyAdmin = existing ? true : allUsers.some((user) => user.isAdmin);
+  const shouldBeBootstrapAdmin =
+    !!process.env.ADMIN_EMAIL &&
+    typeof claims["email"] === "string" &&
+    claims["email"].toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
+    isAdmin: existing?.isAdmin ?? (!hasAnyAdmin || shouldBeBootstrapAdmin),
+    canCreateEvents: existing?.canCreateEvents ?? true,
+    isActive: existing?.isActive ?? true,
   });
 }
 
@@ -144,10 +155,20 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
+  const userId = user?.claims?.sub;
 
   // Check if user is authenticated at all
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  if (!userId) {
+    return res.status(401).json({ message: "User ID not found" });
+  }
+
+  const dbUser = await storage.getUser(userId);
+  if (!dbUser || !dbUser.isActive) {
+    return res.status(403).json({ message: "Tài khoản đã bị vô hiệu hóa" });
   }
 
   // For local auth users (no expires_at field)

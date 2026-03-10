@@ -9,6 +9,7 @@ import { registerEventRoutes } from "./routes/eventRoutes";
 import { registerAttendeeRoutes } from "./routes/attendeeRoutes";
 import { registerCheckinRoutes } from "./routes/checkinRoutes";
 import { registerCollaboratorRoutes } from "./routes/collaboratorRoutes";
+import { registerAdminRoutes } from "./routes/adminRoutes";
 
 interface RegisterRoutesOptions {
   createHttpServer?: boolean;
@@ -28,6 +29,7 @@ export async function registerRoutes(
   registerAttendeeRoutes(app);
   registerCheckinRoutes(app);
   registerCollaboratorRoutes(app);
+  registerAdminRoutes(app);
 
   app.get("/uploads/qr_codes/:filename", (req, res) => {
     const filename = req.params.filename;

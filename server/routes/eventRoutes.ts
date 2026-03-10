@@ -69,6 +69,15 @@ export function registerEventRoutes(app: Express) {
         return res.status(401).json({ message: "User ID not found" });
       }
 
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser || !currentUser.isActive) {
+        return res.status(403).json({ message: "Tài khoản đã bị vô hiệu hóa" });
+      }
+
+      if (!currentUser.isAdmin && !currentUser.canCreateEvents) {
+        return res.status(403).json({ message: "Tài khoản của bạn không được phép tạo sự kiện" });
+      }
+
       const processedData = {
         ...req.body,
         userId,

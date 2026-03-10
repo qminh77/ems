@@ -18,6 +18,15 @@ export function registerCoreRoutes(app: Express) {
         return res.json(cachedUser);
       }
 
+      const user = await storage.getUser(userId);
+      if (user) {
+        if (!user.isActive) {
+          return res.status(403).json({ message: "Tài khoản đã bị vô hiệu hóa" });
+        }
+        cacheManager.set(cacheKey, user, 30_000);
+        return res.json(user);
+      }
+
       const claims = req.user?.claims;
       if (claims?.sub) {
         const userFromSession = {
@@ -26,16 +35,15 @@ export function registerCoreRoutes(app: Express) {
           firstName: claims.first_name ?? null,
           lastName: claims.last_name ?? null,
           profileImageUrl: claims.profile_image_url ?? null,
+          isAdmin: false,
+          canCreateEvents: true,
+          isActive: true,
         };
-        cacheManager.set(cacheKey, userFromSession, 30_000);
+        cacheManager.set(cacheKey, userFromSession, 10_000);
         return res.json(userFromSession);
       }
 
-      const user = await storage.getUser(userId);
-      if (user) {
-        cacheManager.set(cacheKey, user, 30_000);
-      }
-      res.json(user);
+      return res.status(404).json({ message: "User not found" });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
