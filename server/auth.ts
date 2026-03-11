@@ -3,6 +3,7 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage.js";
+import { cacheManager } from "./cacheManager.js";
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000;
@@ -58,10 +59,18 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "User ID not found" });
   }
 
+  const activeUserCacheKey = `auth:active:${userId}`;
+  const cachedActiveUser = cacheManager.get<{ isActive: boolean }>(activeUserCacheKey);
+  if (cachedActiveUser?.isActive) {
+    return next();
+  }
+
   const dbUser = await storage.getUser(userId);
   if (!dbUser || !dbUser.isActive) {
     return res.status(403).json({ message: "Tài khoản đã bị vô hiệu hóa" });
   }
+
+  cacheManager.set(activeUserCacheKey, { isActive: true }, 30_000);
 
   return next();
 };

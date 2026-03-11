@@ -66,18 +66,8 @@ export function registerAdminRoutes(app: Express) {
 
   app.get("/api/admin/users", isAuthenticated, requireAdmin, async (_req, res) => {
     try {
-      const users = await storage.listUsers();
-      const usersWithAuth = await Promise.all(
-        users.map(async (user) => {
-          const auth = await storage.getLocalAuthByUserId(user.id);
-          return {
-            ...user,
-            username: auth?.username || null,
-          };
-        })
-      );
-
-      return res.json(usersWithAuth);
+      const users = await storage.listUsersWithUsername();
+      return res.json(users);
     } catch (error) {
       console.error("Error listing users:", error);
       return res.status(500).json({ message: "Không thể lấy danh sách tài khoản" });
@@ -111,6 +101,9 @@ export function registerAdminRoutes(app: Express) {
       if (!updated) {
         return res.status(404).json({ message: "Không tìm thấy tài khoản" });
       }
+
+      cacheManager.invalidate(`auth:user:${targetUserId}`);
+      cacheManager.invalidate(`auth:active:${targetUserId}`);
 
       return res.json(updated);
     } catch (error) {

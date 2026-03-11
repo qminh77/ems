@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import QRScanner from "@/components/qr-scanner";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { RealTimeIndicator } from "@/components/real-time-indicator";
 import {
@@ -24,6 +23,8 @@ import {
   WifiOff,
   History,
 } from "lucide-react";
+
+const QRScanner = lazy(() => import("@/components/qr-scanner"));
 
 export default function Checkin() {
   const [manualCode, setManualCode] = useState("");
@@ -261,12 +262,20 @@ export default function Checkin() {
               </TabsList>
 
               <TabsContent value="scan" className="space-y-4">
-                <QRScanner
-                  active={scannerActive}
-                  onScan={handleQRScanned}
-                  onActivate={() => !scanCooldown && setScannerActive(true)}
-                  onDeactivate={() => setScannerActive(false)}
-                />
+                <Suspense
+                  fallback={
+                    <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+                      Dang tai bo quet QR...
+                    </div>
+                  }
+                >
+                  <QRScanner
+                    active={scannerActive}
+                    onScan={handleQRScanned}
+                    onActivate={() => !scanCooldown && setScannerActive(true)}
+                    onDeactivate={() => setScannerActive(false)}
+                  />
+                </Suspense>
 
                 {scanCooldown && (
                   <div className="rounded-lg border bg-muted/30 p-3 text-center text-sm text-muted-foreground">

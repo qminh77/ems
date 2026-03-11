@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
 import { wsManager } from "./websocket.js";
@@ -8,6 +9,7 @@ import { ensureDatabaseIndexes } from "./dbIndexes.js";
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(compression());
 app.use(setSecurityHeaders);
 
 app.use((req, res, next) => {

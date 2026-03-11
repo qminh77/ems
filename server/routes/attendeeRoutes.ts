@@ -134,13 +134,12 @@ export function registerAttendeeRoutes(app: Express) {
       }
 
       const qrCode = await ensureUniqueQRCode();
-      const qrDataUrl = await QRCode.toDataURL(qrCode);
 
       const attendeeData = insertAttendeeSchema.parse({
         ...req.body,
         eventId,
         qrCode,
-        qrPath: qrDataUrl,
+        qrPath: null,
       });
 
       const attendee = await storage.createAttendee(attendeeData);
@@ -241,19 +240,19 @@ export function registerAttendeeRoutes(app: Express) {
         return res.status(403).json({ message: "Ban khong co quyen xem ma QR cua sinh vien nay" });
       }
 
-      if (!attendee.qrCode || !attendee.qrPath) {
+      if (!attendee.qrCode) {
         const qrCode = await ensureUniqueQRCode();
-        const qrDataUrl = await QRCode.toDataURL(qrCode);
 
         await storage.updateAttendee(attendeeId, {
           qrCode,
-          qrPath: qrDataUrl,
+          qrPath: null,
         });
 
-        return res.json({ qrCode: qrDataUrl });
+        const freshQrDataUrl = await QRCode.toDataURL(qrCode);
+        return res.json({ qrCode: freshQrDataUrl });
       }
 
-      if (attendee.qrPath.startsWith("data:")) {
+      if (attendee.qrPath?.startsWith("data:")) {
         return res.json({ qrCode: attendee.qrPath });
       }
 
@@ -503,13 +502,12 @@ export function registerAttendeeRoutes(app: Express) {
       for (const attendeeData of validAttendees) {
         try {
           const qrCode = await ensureUniqueQRCode();
-          const qrDataUrl = await QRCode.toDataURL(qrCode);
 
           const attendee = await storage.createAttendee({
             ...attendeeData,
             eventId,
             qrCode,
-            qrPath: qrDataUrl,
+            qrPath: null,
           });
           createdAttendees.push(attendee);
         } catch (error: any) {

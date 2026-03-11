@@ -38,6 +38,7 @@ export interface IStorage {
   getLocalAuthByEmailOrUsername(emailOrUsername: string): Promise<LocalAuth | undefined>;
   getLocalAuthByUserId(userId: string): Promise<LocalAuth | undefined>;
   listUsers(): Promise<User[]>;
+  listUsersWithUsername(): Promise<Array<User & { username: string | null }>>;
   updateUserAdmin(id: string, payload: UpdateUserAdmin): Promise<User | undefined>;
   
   // Event operations
@@ -154,11 +155,30 @@ export class DatabaseStorage implements IStorage {
       .onConflictDoNothing({ target: systemSettings.id });
   }
 
+  private attendeeListSelection() {
+    return {
+      id: attendees.id,
+      eventId: attendees.eventId,
+      name: attendees.name,
+      studentId: attendees.studentId,
+      email: attendees.email,
+      faculty: attendees.faculty,
+      major: attendees.major,
+      qrCode: attendees.qrCode,
+      qrPath: sql<string | null>`NULL`,
+      status: attendees.status,
+      checkinTime: attendees.checkinTime,
+      checkoutTime: attendees.checkoutTime,
+      createdAt: attendees.createdAt,
+    };
+  }
+
   // Optimized method to get attendee with event in single query
   async getAttendeeWithEvent(qrCode: string): Promise<{ attendee: Attendee; event: Event } | undefined> {
+    const attendeeSelection = this.attendeeListSelection();
     const result = await db
       .select({
-        attendee: attendees,
+        attendee: attendeeSelection,
         event: events,
       })
       .from(attendees)
@@ -315,6 +335,41 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async listUsersWithUsername(): Promise<Array<User & { username: string | null }>> {
+    try {
+      const rows = await db
+        .select({
+          user: users,
+          username: localAuth.username,
+        })
+        .from(users)
+        .leftJoin(localAuth, eq(localAuth.userId, users.id))
+        .orderBy(desc(users.createdAt));
+
+      return rows.map((row) => ({
+        ...row.user,
+        username: row.username ?? null,
+      }));
+    } catch (error) {
+      if (!this.isSchemaCompatibilityError(error)) {
+        throw error;
+      }
+
+      const legacyUsers = await this.listUsers();
+      const usersWithAuth = await Promise.all(
+        legacyUsers.map(async (user) => {
+          const auth = await this.getLocalAuthByUserId(user.id);
+          return {
+            ...user,
+            username: auth?.username ?? null,
+          };
+        })
+      );
+
+      return usersWithAuth;
+    }
+  }
+
   async updateUserAdmin(id: string, payload: UpdateUserAdmin): Promise<User | undefined> {
     try {
       const [updatedUser] = await db
@@ -438,8 +493,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAttendeesByEventId(eventId: number, limit: number = 100000, offset: number = 0): Promise<Attendee[]> {
+    const attendeeSelection = this.attendeeListSelection();
     return db
-      .select()
+      .select(attendeeSelection)
       .from(attendees)
       .where(eq(attendees.eventId, eventId))
       .orderBy(desc(attendees.createdAt))
@@ -505,6 +561,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentCheckins(limit: number = 10): Promise<Array<CheckinLog & { attendee: Attendee; event: Event }>> {
+    const attendeeSelection = this.attendeeListSelection();
     const results = await db
       .select({
         id: checkinLogs.id,
@@ -513,7 +570,7 @@ export class DatabaseStorage implements IStorage {
         timestamp: checkinLogs.timestamp,
         ipAddress: checkinLogs.ipAddress,
         userAgent: checkinLogs.userAgent,
-        attendee: attendees,
+        attendee: attendeeSelection,
         event: events,
       })
       .from(checkinLogs)
@@ -545,6 +602,7 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
 
+    const attendeeSelection = this.attendeeListSelection();
     const results = await db
       .select({
         id: checkinLogs.id,
@@ -553,7 +611,7 @@ export class DatabaseStorage implements IStorage {
         timestamp: checkinLogs.timestamp,
         ipAddress: checkinLogs.ipAddress,
         userAgent: checkinLogs.userAgent,
-        attendee: attendees,
+        attendee: attendeeSelection,
         event: events,
       })
       .from(checkinLogs)
