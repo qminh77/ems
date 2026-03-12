@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { CollaboratorsManager } from "@/components/collaborators-manager";
 import { Loader2 } from "lucide-react";
 
 const eventSchema = z.object({
@@ -218,6 +219,12 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
             </Button>
           </div>
         </form>
+
+        {isEditing && typeof event?.id === "number" && (
+          <div className="border-t pt-5">
+            <CollaboratorsManager eventId={event.id} userRole={event.role} />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
