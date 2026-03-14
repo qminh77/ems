@@ -12,6 +12,35 @@ const checkinRateLimit = createRateLimiter({
   keyPrefix: "checkin",
 });
 
+const ACCESS_CACHE_TTL_MS = 30_000;
+type CachedAccess = {
+  access: { hasAccess: boolean; role?: string; permissions?: string[] };
+  expiresAt: number;
+};
+const checkinAccessCache = new Map<string, CachedAccess>();
+
+function getCachedCheckinAccess(eventId: number, userId: string) {
+  const key = `${eventId}:${userId}`;
+  const cached = checkinAccessCache.get(key);
+  if (!cached) {
+    return undefined;
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    checkinAccessCache.delete(key);
+    return undefined;
+  }
+
+  return cached.access;
+}
+
+function setCachedCheckinAccess(eventId: number, userId: string, access: { hasAccess: boolean; role?: string; permissions?: string[] }) {
+  checkinAccessCache.set(`${eventId}:${userId}`, {
+    access,
+    expiresAt: Date.now() + ACCESS_CACHE_TTL_MS,
+  });
+}
+
 export function registerCheckinRoutes(app: Express) {
   app.post("/api/checkin", isAuthenticated, checkinRateLimit, async (req: any, res) => {
     try {
@@ -32,10 +61,18 @@ export function registerCheckinRoutes(app: Express) {
       }
 
       const { attendee, event } = result;
-      const access =
+      let access =
         event.userId === userId
-          ? { hasAccess: true, role: "owner", permissions: ["all"] }
-          : await storage.checkEventAccess(event.id, userId);
+          ? { hasAccess: true, role: "owner", permissions: ["all"] as string[] }
+          : getCachedCheckinAccess(event.id, userId);
+
+      if (!access) {
+        const collaboratorAccess = await storage.getCollaboratorAccess(event.id, userId);
+        access = collaboratorAccess
+          ? { hasAccess: true, role: collaboratorAccess.role, permissions: collaboratorAccess.permissions }
+          : { hasAccess: false };
+        setCachedCheckinAccess(event.id, userId, access);
+      }
 
       if (!access.hasAccess || !canCheckin(access)) {
         return res.status(403).json({ message: "Bạn không có quyền check-in cho sự kiện này" });

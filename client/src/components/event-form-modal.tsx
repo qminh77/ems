@@ -18,6 +18,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { CollaboratorsManager } from "@/components/collaborators-manager";
+import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 
 const eventSchema = z.object({
@@ -38,6 +39,7 @@ interface EventFormModalProps {
 }
 
 export default function EventFormModal({ isOpen, onClose, event }: EventFormModalProps) {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const isEditing = !!event;
 
@@ -100,7 +102,7 @@ export default function EventFormModal({ isOpen, onClose, event }: EventFormModa
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/login";
+          setLocation("/login");
         }, 500);
         return;
       }

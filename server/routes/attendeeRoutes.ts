@@ -8,7 +8,7 @@ import * as XLSX from "xlsx";
 import QRCode from "qrcode";
 import archiver from "archiver";
 import { Readable } from "stream";
-import { insertAttendeeSchema } from "../../shared/schema.js";
+import { insertAttendeeSchema, type InsertAttendee } from "../../shared/schema.js";
 import { storage } from "../storage.js";
 import { isAuthenticated } from "../auth.js";
 import { checkEventAccess } from "../middleware/eventAccess.js";
@@ -23,6 +23,39 @@ const upload = multer({
     files: 1,
   },
 });
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
+
+function chunkArray<T>(items: T[], chunkSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
 
 export function registerAttendeeRoutes(app: Express) {
   const handleBulkDeleteAttendees = async (req: any, res: any) => {
@@ -499,19 +532,30 @@ export function registerAttendeeRoutes(app: Express) {
       const createdAttendees: any[] = [];
       const errors: string[] = [];
 
-      for (const attendeeData of validAttendees) {
-        try {
-          const qrCode = await ensureUniqueQRCode();
+      const preparedRows = await mapWithConcurrency(validAttendees, 20, async (attendeeData): Promise<InsertAttendee> => {
+        const qrCode = await ensureUniqueQRCode();
+        return {
+          ...attendeeData,
+          eventId,
+          qrCode,
+          qrPath: null,
+        };
+      });
 
-          const attendee = await storage.createAttendee({
-            ...attendeeData,
-            eventId,
-            qrCode,
-            qrPath: null,
-          });
-          createdAttendees.push(attendee);
-        } catch (error: any) {
-          errors.push(`${attendeeData.name} (${attendeeData.studentId}): ${error.message}`);
+      const chunks = chunkArray(preparedRows, 200);
+      for (const chunk of chunks) {
+        try {
+          const insertedRows = await storage.createAttendeesBulk(chunk);
+          createdAttendees.push(...insertedRows);
+        } catch {
+          for (const attendeeRow of chunk) {
+            try {
+              const insertedRow = await storage.createAttendee(attendeeRow);
+              createdAttendees.push(insertedRow);
+            } catch (error: any) {
+              errors.push(`${attendeeRow.name} (${attendeeRow.studentId}): ${error.message}`);
+            }
+          }
         }
       }
 

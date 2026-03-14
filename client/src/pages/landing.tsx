@@ -2,19 +2,21 @@ import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import { GraduationCap, UserCircle2 } from "lucide-react";
 
 export default function Landing() {
+  const [, setLocation] = useLocation();
   const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      window.location.href = "/";
+      setLocation("/");
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, setLocation]);
 
   const handleLogin = () => {
-    window.location.href = "/login";
+    setLocation("/login");
   };
 
   return (

@@ -12,6 +12,10 @@
     {
       "source": "/api/(.*)",
       "destination": "/api/[...path]"
+    },
+    {
+      "source": "/(events|students|checkin|admin|login)(/.*)?",
+      "destination": "/"
     }
   ]
 }

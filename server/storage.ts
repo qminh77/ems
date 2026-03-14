@@ -54,6 +54,7 @@ export interface IStorage {
   getAttendeesByIds(ids: number[]): Promise<Attendee[]>;
   getAttendeeByQrCode(qrCode: string): Promise<Attendee | undefined>;
   createAttendee(attendee: InsertAttendee): Promise<Attendee>;
+  createAttendeesBulk(attendees: InsertAttendee[]): Promise<Attendee[]>;
   updateAttendee(id: number, attendee: Partial<Attendee>): Promise<Attendee | undefined>;
   deleteAttendee(id: number): Promise<boolean>;
   deleteMultipleAttendees(ids: number[]): Promise<{ deletedCount: number; errors: string[] }>;
@@ -77,6 +78,7 @@ export interface IStorage {
   getEventCollaborators(eventId: number): Promise<Array<EventCollaborator & { user: User }>>;
   getUserCollaborations(userId: string): Promise<Event[]>;
   checkEventAccess(eventId: number, userId: string): Promise<{ hasAccess: boolean; role?: string; permissions?: string[] }>;
+  getCollaboratorAccess(eventId: number, userId: string): Promise<{ role: string; permissions: string[] } | undefined>;
   updateCollaboratorPermissions(eventId: number, userId: string, permissions: string[]): Promise<EventCollaborator | undefined>;
   searchUsersByEmailOrUsername(query: string): Promise<User[]>;
 
@@ -523,6 +525,14 @@ export class DatabaseStorage implements IStorage {
     return newAttendee;
   }
 
+  async createAttendeesBulk(attendeeRows: InsertAttendee[]): Promise<Attendee[]> {
+    if (attendeeRows.length === 0) {
+      return [];
+    }
+
+    return db.insert(attendees).values(attendeeRows).returning();
+  }
+
   async updateAttendee(id: number, attendee: Partial<Attendee>): Promise<Attendee | undefined> {
     const [updatedAttendee] = await db
       .update(attendees)
@@ -745,6 +755,26 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { hasAccess: false };
+  }
+
+  async getCollaboratorAccess(eventId: number, userId: string): Promise<{ role: string; permissions: string[] } | undefined> {
+    const [collaborator] = await db
+      .select({
+        role: eventCollaborators.role,
+        permissions: eventCollaborators.permissions,
+      })
+      .from(eventCollaborators)
+      .where(and(eq(eventCollaborators.eventId, eventId), eq(eventCollaborators.userId, userId)))
+      .limit(1);
+
+    if (!collaborator) {
+      return undefined;
+    }
+
+    return {
+      role: collaborator.role,
+      permissions: (collaborator.permissions as string[]) ?? [],
+    };
   }
 
   async updateCollaboratorPermissions(eventId: number, userId: string, permissions: string[]): Promise<EventCollaborator | undefined> {

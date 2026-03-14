@@ -64,6 +64,7 @@ function Router() {
           <Suspense fallback={<RouteLoadingFallback />}>
             <Switch>
               <Route path="/" component={Dashboard} />
+              <Route path="/login" component={Dashboard} />
               <Route path="/events" component={Events} />
               <Route path="/students" component={Students} />
               <Route path="/checkin" component={Checkin} />

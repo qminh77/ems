@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocation } from "wouter";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 
 export default function NotFound() {
+  const [, setLocation] = useLocation();
+
   return (
     <div className="flex min-h-svh w-full items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-lg">
@@ -16,7 +19,7 @@ export default function NotFound() {
           <p className="text-sm text-muted-foreground">
             Đường dẫn bạn truy cập không tồn tại hoặc đã bị thay đổi. Vui lòng quay lại trang chính để tiếp tục làm việc.
           </p>
-          <Button onClick={() => (window.location.href = "/")} className="gap-2">
+          <Button onClick={() => setLocation("/")} className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             Quay lại trang tổng quan
           </Button>

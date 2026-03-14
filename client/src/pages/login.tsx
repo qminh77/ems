@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { Eye, EyeOff, GraduationCap, LogIn, ShieldCheck, UserPlus } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { usePublicSystemSettings } from "@/hooks/useSystemSettings";
@@ -30,6 +31,7 @@ async function parseErrorResponse(response: Response, fallbackMessage: string) {
 }
 
 export default function LoginPage() {
+  const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -78,7 +80,7 @@ export default function LoginPage() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      window.location.href = "/";
+      setLocation("/");
     } catch (error: any) {
       toast({
         title: "Đăng nhập thất bại",
@@ -175,7 +177,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-muted/30 p-4">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,theme(colors.primary/8),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.08),transparent_55%)]" />
       <Card className="relative w-full max-w-md border bg-card/95 backdrop-blur">
         <CardHeader className="space-y-4">
           <div className="flex items-center justify-between">

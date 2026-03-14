@@ -1,4 +1,5 @@
 import { useLocation } from "wouter";
+import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { usePublicSystemSettings } from "@/hooks/useSystemSettings";
 import {
@@ -58,7 +59,13 @@ export default function AppSidebar() {
       : user?.email || "User";
 
   const handleLogout = () => {
-    window.location.href = "/api/logout";
+    void fetch("/api/logout", {
+      method: "GET",
+      credentials: "include",
+    }).finally(() => {
+      queryClient.removeQueries({ queryKey: ["/api/auth/user"] });
+      setLocation("/login");
+    });
   };
 
   const isActive = (href: string) => location === href;

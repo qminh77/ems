@@ -1,4 +1,5 @@
 import { useLocation } from "wouter";
+import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -45,6 +46,18 @@ export default function Navbar() {
   };
 
   const initials = user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || "U";
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/logout", {
+        method: "GET",
+        credentials: "include",
+      });
+    } finally {
+      queryClient.removeQueries({ queryKey: ["/api/auth/user"] });
+      setLocation("/login");
+    }
+  };
 
   return (
     <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" data-testid="navbar">
@@ -94,7 +107,7 @@ export default function Navbar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem>{user?.email || "user@example.com"}</DropdownMenuItem>
             {user?.isAdmin && <DropdownMenuItem onClick={() => setLocation("/admin")}>AdminCP</DropdownMenuItem>}
-            <DropdownMenuItem onClick={() => (window.location.href = "/api/logout")}>Đăng xuất</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>Đăng xuất</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

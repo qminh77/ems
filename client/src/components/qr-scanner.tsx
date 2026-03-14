@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, CameraOff, Clock3, QrCode, Upload } from "lucide-react";
 
+const SCAN_INTERVAL_MS = 120;
+const SAME_CODE_COOLDOWN_MS = 5000;
+const MAX_SCAN_WIDTH = 720;
+const MAX_SCAN_HEIGHT = 720;
+
 interface QRScannerProps {
   active: boolean;
   onScan: (qrCode: string) => void;
@@ -19,6 +24,8 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastScannedRef = useRef<string>("");
   const lastScanTimeRef = useRef<number>(0);
+  const lastProcessedFrameRef = useRef<number>(0);
+  const frameCounterRef = useRef<number>(0);
   
   const [isSupported, setIsSupported] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
@@ -30,11 +37,9 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
 
   const startScanning = async () => {
     if (isLoading || hasPermission) {
-      console.log("Already loading or has permission, skipping...");
       return;
     }
-    
-    console.log("Starting scanner...");
+
     setIsLoading(true);
     setError("");
     setCameraReady(false);
@@ -43,31 +48,26 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       // Try simpler constraints first
       let stream: MediaStream;
       try {
-        console.log("Requesting environment camera...");
         // Try with environment camera first
         stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 960 },
+            height: { ideal: 540 }
           }
         });
-        console.log("Environment camera success");
       } catch (envError) {
-        console.log("Environment camera failed, trying any camera...", envError);
         // Fallback to any camera
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 960 },
+            height: { ideal: 540 }
           }
         });
-        console.log("Any camera success");
       }
       
       streamRef.current = stream;
       setHasPermission(true);
-      console.log("Stream acquired, permission granted");
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -82,12 +82,12 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
         // Handle video loading events
         const handleVideoReady = () => {
           clearTimeout(loadTimeout);
-          console.log("Video ready, dimensions:", videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
           setIsLoading(false);
           setCameraReady(true);
-          console.log("Camera ready set to true");
           setScanningStatus("Đang quét mã QR...");
           setIsInCooldown(false);
+          lastProcessedFrameRef.current = 0;
+          frameCounterRef.current = 0;
           // Start detection after video is ready
           startQRDetection();
         };
@@ -101,19 +101,16 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
         
         // Set up event listeners
         videoRef.current.onloadedmetadata = () => {
-          console.log("Video metadata loaded");
           handleVideoReady();
         };
         
         videoRef.current.oncanplay = () => {
-          console.log("Video can play");
           if (!cameraReady) {
             handleVideoReady();
           }
         };
         
         videoRef.current.onplay = () => {
-          console.log("Video playing");
           if (!cameraReady) {
             handleVideoReady();
           }
@@ -126,10 +123,8 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
           if (videoRef.current && !cameraReady) {
             try {
               await videoRef.current.play();
-              console.log("Manual play successful");
               // If video is playing but events haven't fired, force ready state
               if (videoRef.current.readyState >= 2) {
-                console.log("Forcing camera ready state");
                 handleVideoReady();
               }
             } catch (playError) {
@@ -138,11 +133,9 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
               setTimeout(() => {
                 if (videoRef.current && !cameraReady) {
                   videoRef.current.play().then(() => {
-                    console.log("Second manual play successful");
                     // Force ready after successful play
                     setTimeout(() => {
                       if (!cameraReady && (videoRef.current?.readyState ?? 0) >= 2) {
-                        console.log("Force setting camera ready after successful play");
                         handleVideoReady();
                       }
                     }, 500);
@@ -159,12 +152,12 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
         // Force ready state after 1.5 seconds if we have stream
         setTimeout(() => {
           if (streamRef.current && videoRef.current && !cameraReady) {
-            console.log("Force clearing loading state after 1.5s");
             setIsLoading(false);
             setCameraReady(true);
             setScanningStatus("Đang quét mã QR...");
             setIsInCooldown(false);
-            console.log("Force set camera ready = true");
+            lastProcessedFrameRef.current = 0;
+            frameCounterRef.current = 0;
             startQRDetection();
           }
         }, 1500);
@@ -212,6 +205,8 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
     // Reset scan tracking
     lastScannedRef.current = "";
     lastScanTimeRef.current = 0;
+    lastProcessedFrameRef.current = 0;
+    frameCounterRef.current = 0;
     
     setHasPermission(false);
     setCameraReady(false);
@@ -220,11 +215,8 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   };
 
   const startQRDetection = () => {
-    console.log("Starting QR detection...");
-    
     const detectFrame = () => {
       if (!videoRef.current || !canvasRef.current) {
-        console.log("Video or canvas not ready");
         animationRef.current = requestAnimationFrame(detectFrame);
         return;
       }
@@ -234,34 +226,47 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
       
       // Check if video is actually playing and has dimensions
       if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
-        console.log("Video not ready, state:", video.readyState, "dimensions:", video.videoWidth, "x", video.videoHeight);
         animationRef.current = requestAnimationFrame(detectFrame);
         return;
       }
+
+      const now = performance.now();
+      if (now - lastProcessedFrameRef.current < SCAN_INTERVAL_MS) {
+        animationRef.current = requestAnimationFrame(detectFrame);
+        return;
+      }
+      lastProcessedFrameRef.current = now;
       
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) {
-        console.log("Canvas context not available");
         animationRef.current = requestAnimationFrame(detectFrame);
         return;
       }
       
-      // Set canvas size to match video
-      const width = video.videoWidth;
-      const height = video.videoHeight;
-      canvas.width = width;
-      canvas.height = height;
+      // Downscale frame for faster QR detection
+      const sourceWidth = video.videoWidth;
+      const sourceHeight = video.videoHeight;
+      const scale = Math.min(1, MAX_SCAN_WIDTH / sourceWidth, MAX_SCAN_HEIGHT / sourceHeight);
+      const width = Math.max(1, Math.floor(sourceWidth * scale));
+      const height = Math.max(1, Math.floor(sourceHeight * scale));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
       
       // Draw video frame to canvas
       ctx.drawImage(video, 0, 0, width, height);
       
       try {
         // Get image data for QR detection
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, width, height);
+        frameCounterRef.current += 1;
+        const inversionAttempts = frameCounterRef.current % 8 === 0 ? "attemptBoth" : "dontInvert";
         
         // Try multiple inversion attempts for better detection
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "attemptBoth"  // Try both inverted and normal
+          inversionAttempts,
         });
         
         if (code && code.data) {
@@ -269,9 +274,8 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
           const timeSinceLastScan = currentTime - lastScanTimeRef.current;
           
           // Kiểm tra xem có phải cùng mã QR và trong thời gian chờ không (5 giây)
-          if (code.data === lastScannedRef.current && timeSinceLastScan < 5000) {
-            console.log("Same QR code detected within cooldown period, ignoring...");
-            setScanningStatus(`Vui lòng đợi ${Math.ceil((5000 - timeSinceLastScan) / 1000)} giây...`);
+          if (code.data === lastScannedRef.current && timeSinceLastScan < SAME_CODE_COOLDOWN_MS) {
+            setScanningStatus(`Vui lòng đợi ${Math.ceil((SAME_CODE_COOLDOWN_MS - timeSinceLastScan) / 1000)} giây...`);
             setIsInCooldown(true);
             // Tiếp tục quét nhưng không xử lý
             animationRef.current = requestAnimationFrame(detectFrame);
@@ -282,7 +286,6 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
           setIsInCooldown(false);
           
           // QR code mới hoặc đã hết thời gian chờ
-          console.log("QR Code detected:", code.data);
           setScanningStatus("Đã tìm thấy mã QR!");
           
           // Lưu mã và thời gian quét
@@ -316,7 +319,6 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
     
     // Start detection loop after a small delay
     setTimeout(() => {
-      console.log("Starting detection loop...");
       detectFrame();
     }, 100);
   };
@@ -384,12 +386,10 @@ export default function QRScanner({ active, onScan, onActivate, onDeactivate }: 
   useEffect(() => {
     if (active) {
       if (!hasPermission && !isLoading) {
-        console.log("Starting camera scan...");
         startScanning();
       }
     } else {
       if (hasPermission) {
-        console.log("Stopping camera scan...");
         stopScanning();
       }
     }

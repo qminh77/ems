@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 
 const studentSchema = z.object({
@@ -37,6 +38,7 @@ interface StudentFormModalProps {
 }
 
 export default function StudentFormModal({ isOpen, onClose, student, eventId, events }: StudentFormModalProps) {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const isEditing = !!student;
 
@@ -96,7 +98,7 @@ export default function StudentFormModal({ isOpen, onClose, student, eventId, ev
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/login";
+          setLocation("/login");
         }, 500);
         return;
       }
