@@ -8,7 +8,7 @@ type StudentsToolbarProps = {
   isImporting: boolean;
   onImport: () => void;
   onDownloadTemplate: () => void;
-  onExportExcel: () => void;
+  onExportAttendeesWithQR: () => void;
   onAddStudent: () => void;
 };
 
@@ -18,7 +18,7 @@ export function StudentsToolbar({
   isImporting,
   onImport,
   onDownloadTemplate,
-  onExportExcel,
+  onExportAttendeesWithQR,
   onAddStudent,
 }: StudentsToolbarProps) {
   return (
@@ -48,15 +48,15 @@ export function StudentsToolbar({
         </Button>
 
         <Button
-          onClick={onExportExcel}
+          onClick={onExportAttendeesWithQR}
           variant="outline"
           size="sm"
           className="gap-2"
           disabled={!selectedEventId || attendeesCount === 0}
-          title="Xuất danh sách sinh viên"
+          title="Tải danh sách sinh viên kèm mã QR"
         >
           <FileSpreadsheet className="h-4 w-4" />
-          <span>Xuất Excel</span>
+          <span>Tải DS + QR (.zip)</span>
         </Button>
 
         <Button

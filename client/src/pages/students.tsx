@@ -244,9 +244,9 @@ export default function Students() {
     window.open("/api/attendees/template", "_blank");
   };
 
-  const handleExportExcel = () => {
+  const handleExportAttendeesWithQR = () => {
     if (!selectedEventId) return;
-    window.location.href = `/api/events/${selectedEventId}/attendees/export`;
+    window.location.href = `/api/events/${selectedEventId}/attendees/export-zip`;
   };
 
   const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,7 +345,7 @@ export default function Students() {
           isImporting={isImporting}
           onImport={() => fileInputRef.current?.click()}
           onDownloadTemplate={handleDownloadTemplate}
-          onExportExcel={handleExportExcel}
+          onExportAttendeesWithQR={handleExportAttendeesWithQR}
           onAddStudent={handleAddStudent}
         />
 
